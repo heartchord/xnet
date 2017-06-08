@@ -18,9 +18,15 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\xnet.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\xnet.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{D2BF3E83-BC74-4434-855D-F9201EDC8BDE}</ProjectGuid>
+    <ProjectGuid>{85A0EC8D-9DFD-43BD-AC33-94683314E0CE}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>xzero</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
