@@ -14,6 +14,9 @@
     <ClInclude Include="include\xnet.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="include\public.h">
+      <Filter>include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\xnet.cpp">

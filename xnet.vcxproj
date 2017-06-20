@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\public.h" />
     <ClInclude Include="include\xnet.h" />
   </ItemGroup>
   <ItemGroup>
