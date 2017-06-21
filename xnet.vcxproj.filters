@@ -9,17 +9,32 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="include\internal">
+      <UniqueIdentifier>{7cdfbcf2-2041-4002-9d53-2542b5e02f48}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\xnet.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\public.h">
-      <Filter>include</Filter>
+    <ClInclude Include="include\internal\public.h">
+      <Filter>include\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="include\internal\stream.h">
+      <Filter>include\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="include\internal\wrapper.h">
+      <Filter>include\internal</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\xnet.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\stream.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\wrapper.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>
