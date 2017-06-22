@@ -28,7 +28,7 @@ int KG_SocketStream::Init(const SOCKET nSocket, const sockaddr_in &saAddress, co
 
     KG_PROCESS_ERROR(!m_nInitFlag && "[ERROR] KG_SocketStream has been initialized!");
     KG_PROCESS_ERROR(!m_nOpenFlag && "[ERROR] KG_SocketStream has been opened!"     );
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket > 0);
+    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
 
     m_nSocket       = nSocket;
     m_saAddress     = saAddress;

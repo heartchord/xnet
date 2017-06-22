@@ -2,6 +2,7 @@
 
 #ifdef WIN32                                                            // windows platform
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
 #pragma comment(lib, "ws2_32.lib")
 
@@ -31,3 +32,6 @@
 #else                                                                   // linux   platform
 #define KG_INVALID_SOCKET -1                                            // type(SOCKET) = signed int,   KG_INVALID_SOCKET = 0xFFFFFFFF
 #endif
+
+#undef  KG_DEFAULT_ACCEPT_BACK_LOG
+#define KG_DEFAULT_ACCEPT_BACK_LOG 5
