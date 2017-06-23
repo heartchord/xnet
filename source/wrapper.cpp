@@ -38,7 +38,7 @@ SOCKET KG_CreateListenSocket(const char * const cszIpAddr, const WORD nPort, con
 
     // create a tcp socket
     hListenSocket = KG_CreateTcpSocket();
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != hListenSocket && hListenSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(hListenSocket);
 
     // fill in sockaddr_in
     if (NULL != cszIpAddr && '\0' != cszIpAddr[0])
@@ -92,7 +92,7 @@ int KG_CheckSocketSend(SOCKET nSocket, const timeval *pcTimeOut)
     int nResult  = -1;
     int nRetCode = 0;
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     for (;;)
     {
@@ -138,7 +138,7 @@ int KG_CheckSocketRecv(SOCKET nSocket, const timeval *pcTimeOut)
     int nResult  = -1;
     int nRetCode = 0;
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     for (;;)
     {
@@ -182,7 +182,7 @@ int KG_CheckSocketSendEx(SOCKET nSocket, const timeval *pcTimeOut)
     struct pollfd fdPoll;
 #endif // KG_PLATFORM_WINDOWS
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     nResult = KG_CheckSocketSend(nSocket, pcTimeOut);
@@ -248,7 +248,7 @@ int KG_CheckSocketRecvEx(SOCKET nSocket, const timeval *pcTimeOut)
     struct pollfd fdPoll;
 #endif // KG_PLATFORM_WINDOWS
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     nResult = KG_CheckSocketRecv(nSocket, pcTimeOut);
@@ -305,15 +305,15 @@ Exit0:
     return nResult;
 }
 
-int KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const unsigned int uBuffSize, const unsigned int uSendBytes, const timeval *pcTimeout)
+int KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const UINT32 uBuffSize, const UINT32 uSendBytes, const timeval *pcTimeout)
 {
     int          nResult    = -1;
     int          nRetCode   = 0;
-    unsigned int uLeftBytes = uSendBytes;
+    UINT32       uLeftBytes = uSendBytes;
     const char * pcCurrent  = cpcBuff;
 
     KG_PROCESS_PTR_ERROR(cpcBuff);
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
     KG_PROCESS_ERROR(uBuffSize > 0 && uSendBytes > 0 && uSendBytes <= uBuffSize);
 
     while (uLeftBytes > 0)
@@ -358,19 +358,19 @@ Exit0:
     return nResult;
 }
 
-int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const unsigned int uBuffSize, unsigned int * const puRecvBytes, const timeval *pcTimeout)
+int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, unsigned int * const puRecvBytes, const timeval *pcTimeout)
 {
-    int          nResult    = -1;
-    int          nRetCode   = 0;
-    unsigned int uLeftBytes = uBuffSize;
-    unsigned int uRecvBytes = 0;
-    char *       pCurrent   = cpBuff;
+    int    nResult    = -1;
+    int    nRetCode   = 0;
+    UINT32 uLeftBytes = uBuffSize;
+    UINT32 uRecvBytes = 0;
+    char * pCurrent   = cpBuff;
 
     *puRecvBytes = 0;
 
     KG_PROCESS_PTR_ERROR(cpBuff);
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
     KG_PROCESS_ERROR(uBuffSize > 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     while (uLeftBytes > 0)
     {
@@ -416,9 +416,9 @@ Exit0:
     return nResult;
 }
 
-int KG_SetSocketBlockMode(SOCKET &nSocket, bool bBlocked)
+bool KG_SetSocketBlockMode(SOCKET &nSocket, bool bBlocked)
 {
-    int   nResult  = false;
+    bool  bResult  = false;
     int   nRetCode = 0;
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     ULONG ulOption = 0;
@@ -426,7 +426,7 @@ int KG_SetSocketBlockMode(SOCKET &nSocket, bool bBlocked)
     int   nOption  = 0;
 #endif // KG_PLATFORM_WINDOWS
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     if (bBlocked)
     { // blocked mode
@@ -453,15 +453,15 @@ int KG_SetSocketBlockMode(SOCKET &nSocket, bool bBlocked)
     #endif // KG_PLATFORM_WINDOWS
     }
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_IsSocketEWouldBlock()
+bool KG_IsSocketEWouldBlock()
 {
-    int nResult  = false;
-    int nRetCode = 0;
+    bool bResult  = false;
+    int  nRetCode = 0;
 
     nRetCode = KG_GetSocketErrCode();
 
@@ -471,15 +471,15 @@ int KG_IsSocketEWouldBlock()
     KG_PROCESS_ERROR_Q(EAGAIN == nRetCode || EWOULDBLOCK == nRetCode);
 #endif // KG_PLATFORM_WINDOWS
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_IsSocketInterrupted()
+bool KG_IsSocketInterrupted()
 {
-    int nResult  = false;
-    int nRetCode = 0;
+    bool bResult  = false;
+    int  nRetCode = 0;
 
     nRetCode = KG_GetSocketErrCode();
 
@@ -489,15 +489,15 @@ int KG_IsSocketInterrupted()
     KG_PROCESS_ERROR_Q(EINTR == nRetCode);
 #endif // KG_PLATFORM_WINDOWS
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_IsSocketClosedByRemote()
+bool KG_IsSocketClosedByRemote()
 {
-    int nResult  = false;
-    int nRetCode = 0;
+    bool bResult  = false;
+    int  nRetCode = 0;
 
     nRetCode = KG_GetSocketErrCode();
 
@@ -507,14 +507,14 @@ int KG_IsSocketClosedByRemote()
     KG_PROCESS_ERROR_Q(ECONNRESET == nRetCode);
 #endif // KG_PLATFORM_WINDOWS
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_CloseSocketSafely(SOCKET &nSocket)
+bool KG_CloseSocketSafely(SOCKET &nSocket)
 {
-    int           nResult  = false;
+    bool          bResult  = false;
     int           nRetCode = 0;
     struct linger li;
 
@@ -557,17 +557,17 @@ int KG_CloseSocketSafely(SOCKET &nSocket)
 
 Exit1:
     nSocket = KG_INVALID_SOCKET;
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_SetSocketRecvBuff(SOCKET nSocket, const unsigned int uRecvBuffSize)
+bool KG_SetSocketRecvBuff(SOCKET nSocket, const UINT32 uRecvBuffSize)
 {
-    int nResult  = false;
-    int nRetCode = 0;
+    bool bResult  = false;
+    int  nRetCode = 0;
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     if (uRecvBuffSize > 0)
     {
@@ -579,17 +579,17 @@ int KG_SetSocketRecvBuff(SOCKET nSocket, const unsigned int uRecvBuffSize)
         KG_PROCESS_ERROR(0 == nRetCode);
     }
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_SetSocketSendBuff(SOCKET nSocket, const unsigned int uSendBuffSize)
+bool KG_SetSocketSendBuff(SOCKET nSocket, const UINT32 uSendBuffSize)
 {
-    int nResult  = false;
-    int nRetCode = 0;
+    bool bResult  = false;
+    int  nRetCode = 0;
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
     if (uSendBuffSize > 0)
     {
@@ -601,20 +601,20 @@ int KG_SetSocketSendBuff(SOCKET nSocket, const unsigned int uSendBuffSize)
         KG_PROCESS_ERROR(0 == nRetCode);
     }
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_SetSocketSendTimeOut(SOCKET &nSocket, const timeval &tv)
+bool KG_SetSocketSendTimeOut(SOCKET &nSocket, const timeval &tv)
 {
-    int nResult       = false;
-    int nRetCode      = 0;
+    bool bResult       = false;
+    int  nRetCode      = 0;
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    int nMilliSeconds = 0;
+    int  nMilliSeconds = 0;
 #endif // KG_PLATFORM_WINDOWS
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     nMilliSeconds = tv.tv_sec * 1000 + tv.tv_usec / 1000;
@@ -625,20 +625,20 @@ int KG_SetSocketSendTimeOut(SOCKET &nSocket, const timeval &tv)
     KG_PROCESS_ERROR(0 == nRetCode);
 #endif // KG_PLATFORM_WINDOWS
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
 
-int KG_SetSocketRecvTimeOut(SOCKET &nSocket, const timeval &tv)
+bool KG_SetSocketRecvTimeOut(SOCKET &nSocket, const timeval &tv)
 {
-    int nResult       = false;
-    int nRetCode      = 0;
+    bool bResult       = false;
+    int  nRetCode      = 0;
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    int nMilliSeconds = 0;
+    int  nMilliSeconds = 0;
 #endif // KG_PLATFORM_WINDOWS
 
-    KG_PROCESS_ERROR(KG_INVALID_SOCKET != nSocket && nSocket >= 0);
+    KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     nMilliSeconds = tv.tv_sec * 1000 + tv.tv_usec / 1000;
@@ -649,8 +649,9 @@ int KG_SetSocketRecvTimeOut(SOCKET &nSocket, const timeval &tv)
     KG_PROCESS_ERROR(0 == nRetCode);
 #endif
 
-    nResult = true;
+    bResult = true;
 Exit0:
-    return nResult;
+    return bResult;
 }
+
 KG_NAMESPACE_END

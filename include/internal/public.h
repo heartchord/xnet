@@ -26,7 +26,7 @@
 #include "xzero.h"
 #include "xbuff.h"
 
-#undef KG_INVALID_SOCKET
+#undef  KG_INVALID_SOCKET
 #ifdef  KG_PLATFORM_WINDOWS                                             // windows platform
 #define KG_INVALID_SOCKET INVALID_SOCKET                                // type(SOCKET) = unsigned int, KG_INVALID_SOCKET = 0xFFFFFFFF
 #else                                                                   // linux   platform
@@ -35,3 +35,14 @@
 
 #undef  KG_DEFAULT_ACCEPT_BACK_LOG
 #define KG_DEFAULT_ACCEPT_BACK_LOG 5
+
+#undef  KG_PROCESS_SOCKET_ERROR_Q
+#define KG_PROCESS_SOCKET_ERROR_Q(s) \
+    KG_PROCESS_ERROR_Q(KG_INVALID_SOCKET != s && s >= 0)
+
+#undef  KG_MAX_PAK_HEAD_SIZE
+#define KG_MAX_PAK_HEAD_SIZE 4
+
+#undef  KG_PROCESS_SOCKET_ERROR
+#define KG_PROCESS_SOCKET_ERROR(s) \
+    KG_PROCESS_ERROR(KG_INVALID_SOCKET != s && s >= 0)
