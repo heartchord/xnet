@@ -11,7 +11,7 @@ int  KG_CheckSocketRecv    (SOCKET nSocket, const timeval *pcTimeOut = NULL);
 int  KG_CheckSocketSendEx  (SOCKET nSocket, const timeval *pcTimeOut = NULL);
 int  KG_CheckSocketRecvEx  (SOCKET nSocket, const timeval *pcTimeOut = NULL);
 int  KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const UINT32 uBuffSize, const UINT32 uSendBytes, const timeval *pcTimeout = NULL);
-int  KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, unsigned int * const puRecvBytes, const timeval *pcTimeout = NULL);
+int  KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, UINT32 * const puRecvBytes, const timeval *pcTimeout = NULL);
 
 bool KG_IsSocketEWouldBlock();
 bool KG_IsSocketInterrupted();

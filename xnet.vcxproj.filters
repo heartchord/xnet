@@ -26,6 +26,9 @@
     <ClInclude Include="include\internal\wrapper.h">
       <Filter>include\internal</Filter>
     </ClInclude>
+    <ClInclude Include="include\internal\acceptor.h">
+      <Filter>include\internal</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\xnet.cpp">
@@ -35,6 +38,9 @@
       <Filter>source</Filter>
     </ClCompile>
     <ClCompile Include="source\wrapper.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\acceptor.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>

@@ -358,7 +358,7 @@ Exit0:
     return nResult;
 }
 
-int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, unsigned int * const puRecvBytes, const timeval *pcTimeout)
+int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, UINT32 * const puRecvBytes, const timeval *pcTimeout)
 {
     int    nResult    = -1;
     int    nRetCode   = 0;

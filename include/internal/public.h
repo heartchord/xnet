@@ -4,6 +4,7 @@
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
 #else                                                                   // linux platform
@@ -28,7 +29,7 @@
 
 #undef  KG_INVALID_SOCKET
 #ifdef  KG_PLATFORM_WINDOWS                                             // windows platform
-#define KG_INVALID_SOCKET INVALID_SOCKET                                // type(SOCKET) = unsigned int, KG_INVALID_SOCKET = 0xFFFFFFFF
+#define KG_INVALID_SOCKET INVALID_SOCKET                                // type(SOCKET) = UINT32, KG_INVALID_SOCKET = 0xFFFFFFFF
 #else                                                                   // linux   platform
 #define KG_INVALID_SOCKET -1                                            // type(SOCKET) = signed int,   KG_INVALID_SOCKET = 0xFFFFFFFF
 #endif

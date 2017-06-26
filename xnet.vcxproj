@@ -19,12 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\internal\acceptor.h" />
     <ClInclude Include="include\internal\public.h" />
     <ClInclude Include="include\internal\stream.h" />
     <ClInclude Include="include\internal\wrapper.h" />
     <ClInclude Include="include\xnet.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="source\acceptor.cpp" />
     <ClCompile Include="source\stream.cpp" />
     <ClCompile Include="source\wrapper.cpp" />
     <ClCompile Include="source\xnet.cpp" />

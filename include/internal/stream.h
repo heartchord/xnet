@@ -40,7 +40,7 @@ public:
     virtual ~KG_SocketStream();
 
 public:
-    int Init(const SOCKET nSocket, const sockaddr_in &saAddress,
+    bool Init(const SOCKET nSocket, const sockaddr_in &saAddress,
         const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
 public:
@@ -65,10 +65,14 @@ public:
 protected:
     SOCKET             m_nSocket;                                       // Socket descriptor
     struct sockaddr_in m_saAddress;                                     // Socket address
+    int                m_nConnIndex;                                    // connection index
     int                m_nErrCode;                                      // Last error code
 };
 
 typedef KG_SocketStream *                PKG_SocketStream;
 typedef std::shared_ptr<KG_SocketStream> SPKG_SocketStream;
+
+SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(const SOCKET nSocket, const sockaddr_in &saAddress,
+    const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
 KG_NAMESPACE_END
