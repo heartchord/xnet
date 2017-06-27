@@ -47,3 +47,92 @@
 #undef  KG_PROCESS_SOCKET_ERROR
 #define KG_PROCESS_SOCKET_ERROR(s) \
     KG_PROCESS_ERROR(KG_INVALID_SOCKET != s && s >= 0)
+
+KG_NAMESPACE_BEGIN(xnet)
+
+class KG_NetService : private xzero::KG_UnCopyable
+{
+    KG_SINGLETON_DCL(KG_NetService)
+
+public:
+    KG_NetService();
+    ~KG_NetService();
+
+public:
+    bool Open(const WORD wHighVersion = 2, const WORD wLowVersion = 2);
+    bool Close();
+
+private:
+    bool m_bStarted;
+};
+
+typedef KG_NetService *PKG_NetService;
+
+inline KG_NetService::KG_NetService() : m_bStarted(false)
+{
+    Open();
+    KG_ASSERT(m_bStarted  && "[ERROR] It seems net service hasn't been started!");
+}
+
+inline KG_NetService::~KG_NetService()
+{
+    Close();
+    KG_ASSERT(!m_bStarted && "[ERROR] It seems net service hasn't been stopped!");
+}
+
+inline bool KG_NetService::Open(const WORD wHighVersion, const WORD wLowVersion)
+{
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+
+    int     nResult  = false;
+    int     nRetCode = 0;
+    WORD    nVersion = 0;
+    WSADATA wsaData;
+
+    KG_PROCESS_SUCCESS(m_bStarted);
+
+    nVersion = MAKEWORD(wHighVersion, wLowVersion);
+    nRetCode = ::WSAStartup(nVersion, &wsaData);
+    KG_PROCESS_ERROR(0 == nRetCode);
+
+Exit1:
+    m_bStarted = true;
+    nResult    = true;
+Exit0:
+    return nResult;
+
+#else                                                                   // linux   platform
+
+    m_bStarted = true;
+    return true;
+
+#endif
+}
+
+inline bool KG_NetService::Close()
+{
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+
+    int nResult  = false;
+    int nRetCode = 0;
+
+    KG_PROCESS_SUCCESS(!m_bStarted);
+
+    nRetCode = ::WSACleanup();
+    KG_PROCESS_ERROR(0 == nRetCode);
+
+Exit1:
+    m_bStarted = false;
+    nResult    = true;
+Exit0:
+    return nResult;
+
+#else                                                                   // linux   platform
+
+    m_bStarted = false;
+    return true;
+
+#endif
+}
+
+KG_NAMESPACE_END

@@ -3,7 +3,8 @@
 
 KG_NAMESPACE_BEGIN(xnet)
 
-UINT32 g_uSocketMemBlockSizeArray[] =
+// local variables
+UINT32 l_uSocketMemBlockSizeArray[] =
 {
     2  * 8,                                                             // 16    bytes        [00-01)
     4  * 8,                                                             // 32    bytes        [01-02)
@@ -32,10 +33,10 @@ UINT32 g_uSocketMemBlockSizeArray[] =
     64 * 1024,                                                          // 65536 bytes(64 KB) [24-25)
 };
 
-const UINT32 g_uSocketMemBlockSizeArraySize = sizeof(g_uSocketMemBlockSizeArray) / sizeof(g_uSocketMemBlockSizeArray[0]);
+const UINT32 l_uSocketMemBlockSizeArraySize = sizeof(l_uSocketMemBlockSizeArray) / sizeof(l_uSocketMemBlockSizeArray[0]);
 
-typedef xzero::KG_MemoryPool<g_uSocketMemBlockSizeArraySize, g_uSocketMemBlockSizeArray> KG_SocketMemoryPool;
-static KG_SocketMemoryPool g_SocketMemoryPool;
+typedef xzero::KG_MemoryPool<l_uSocketMemBlockSizeArraySize, l_uSocketMemBlockSizeArray> KG_SocketMemoryPool;
+static KG_SocketMemoryPool l_SocketMemoryPool;
 
 bool KG_EncapsulatePakHead(char * const cpBuff, const UINT32 uBuffSize, UINT32 n)
 {
@@ -93,8 +94,8 @@ bool KG_SocketStream::Init(const SOCKET nSocket, const sockaddr_in &saAddress, c
     bResult = true;
 Exit0:
     if (!bResult)
-    { // Do some clean up here. If error occurs, don't close socket here, because the ownership wasn't  transferred.
-        m_nSocket  = KG_INVALID_SOCKET;
+    { // Do some clean up here. If an error occurs, don't close socket here, because the ownership isn't transferred.
+        m_nSocket  = KG_INVALID_SOCKET;                                 // close it outside
         m_nErrCode = KG_GetSocketErrCode();
         xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
     }
@@ -212,7 +213,7 @@ int KG_SocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSi
     if (0 == nRetCode)
     {
         if (0 == uRecvBytes)
-        {
+        { // no data in socket buffer
             nResult = 0; goto Exit0;                                    // timeout
         }
         KG_PROCESS_ERROR(false);                                        // error : no buffer, incomplete data
@@ -223,7 +224,7 @@ int KG_SocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSi
 
     // recv pak body
     uPakSize -= uPakHeadSize;                                           // exclude head
-    spBuffer  = xbuff::KG_GetSharedBuffFromMemoryPool(&g_SocketMemoryPool, uPakSize, KG_MAX_PAK_HEAD_SIZE);
+    spBuffer  = xbuff::KG_GetSharedBuffFromMemoryPool(&l_SocketMemoryPool, uPakSize, KG_MAX_PAK_HEAD_SIZE);
     KG_PROCESS_ERROR(spBuffer);                                         // error
 
     nRetCode = KG_CheckRecvSocketData(m_nSocket, (char * const)spBuffer->Buf(), uPakSize, &uRecvBytes, cpcTimeOut);
@@ -340,7 +341,7 @@ Exit0:
     return;
 }
 
-SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize, const UINT32 uSendBuffSize)
+SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(SOCKET &nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize, const UINT32 uSendBuffSize)
 {
     bool             bResult = false;
     int              nRetCode = 0;
@@ -349,7 +350,7 @@ SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(const SOCKET nSocket, const 
 
     KG_PROCESS_SOCKET_ERROR(nSocket);
 
-    nRetCode = g_SocketMemoryPool.Get(&pvBuff, sizeof(KG_SocketStream));
+    nRetCode = l_SocketMemoryPool.Get(&pvBuff, sizeof(KG_SocketStream));
     KG_PROCESS_ERROR(nRetCode);
     KG_PROCESS_PTR_ERROR(pvBuff);
 
@@ -358,6 +359,7 @@ SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(const SOCKET nSocket, const 
 
     nRetCode = pSocketStream->Init(nSocket, saAddress, uRecvBuffSize, uSendBuffSize);
     KG_PROCESS_ERROR(nRetCode);
+    nSocket = KG_INVALID_SOCKET;                                        // transfer ownership
 
     bResult = true;
 Exit0:
@@ -371,10 +373,10 @@ Exit0:
 
         if (pvBuff)
         {
-            g_SocketMemoryPool.Put(&pvBuff);
+            l_SocketMemoryPool.Put(&pvBuff);
         }
     }
-    return SPIKG_SocketStream(pSocketStream, KG_SocketStreamDeleter(&g_SocketMemoryPool));
+    return SPIKG_SocketStream(pSocketStream, KG_SocketStreamDeleter(&l_SocketMemoryPool));
 }
 
 KG_NAMESPACE_END

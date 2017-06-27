@@ -84,7 +84,7 @@ int KG_SocketAcceptor::Accept(SPIKG_SocketStream &spSocketStream, const timeval 
         KG_PROCESS_ERROR(nRetCode >= 0);                                // error
 
         if (0 == nRetCode)
-        {
+        {                                                               // timeout
             nResult = 0; goto Exit0;
         }
 
@@ -127,6 +127,11 @@ Exit0:
         {
             spSocketStream->Close();
             spSocketStream = SPIKG_SocketStream();
+        }
+
+        if (KG_INVALID_SOCKET != nSocket)
+        {
+            KG_CloseSocketSafely(nSocket);
         }
     }
 

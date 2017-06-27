@@ -33,6 +33,17 @@ public:
 typedef IKG_SocketStream *                PIKG_SocketStream;
 typedef std::shared_ptr<IKG_SocketStream> SPIKG_SocketStream;
 
+/*--------------------------------------------------------------------------------------------------*/
+/* KG_SocketStream : A socket stream without any data cache.                                        */
+/* When receiving data(KG_SocketStream::Recv), several situations need to be considered:            */
+/*     (1) A whole package(pak head + pak body) reaches, KG_SocketStream::Recv() will read the whole*/
+/* package body into a SPIKG_Buffer, and the return code will be 1.                                 */
+/*     (2) No data in socket buffer, the SPIKG_Buffer will be null and he return code will be 0.    */
+/*     (3) If an incomplete package(incomplete head or imcomplete body) found when KG_SocketStream::*/
+/* Recv() is executing, we consider it as an error occurs, just because one incomplete package will */
+/* cause data corruption. In this situation, just close socket and let it reconnect.                */
+/*     (4) If an error occurs, the SPIKG_Buffer will be null and he return code will be -1.         */
+/*--------------------------------------------------------------------------------------------------*/
 class KG_SocketStream : public IKG_SocketStream
 {
 public:
@@ -40,8 +51,7 @@ public:
     virtual ~KG_SocketStream();
 
 public:
-    bool Init(const SOCKET nSocket, const sockaddr_in &saAddress,
-        const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
+    bool Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
 public:
     virtual bool Open();
@@ -72,7 +82,7 @@ protected:
 typedef KG_SocketStream *                PKG_SocketStream;
 typedef std::shared_ptr<KG_SocketStream> SPKG_SocketStream;
 
-SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(const SOCKET nSocket, const sockaddr_in &saAddress,
+SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(SOCKET &nSocket, const sockaddr_in &saAddress,
     const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
 KG_NAMESPACE_END
