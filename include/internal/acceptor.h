@@ -19,4 +19,7 @@ public:
     int  Accept(SPIKG_SocketStream &spSocketStream, const timeval *const cpcTimeout = NULL);
 };
 
+typedef KG_SocketAcceptor                 *PKG_SocketAcceptor;
+typedef std::shared_ptr<KG_SocketAcceptor> SPKG_SocketAcceptor;
+
 KG_NAMESPACE_END

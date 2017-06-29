@@ -14,10 +14,34 @@ public:
     virtual bool Close()    = 0;
     virtual bool Activate() = 0;
 
+protected:
+    virtual bool _OnClientClosed(SPIKG_SocketStream &spStream);
+    virtual bool _OnClientConnected(SPIKG_SocketStream &spStream);
+    virtual bool _OnClientDataRecvd(SPIKG_SocketStream &spStream, xbuff::SPIKG_Buffer &spBuff);
+};
+
+typedef IKG_ServerProxy                 *PIKG_ServerProxy;
+typedef std::shared_ptr<IKG_ServerProxy> SPIKG_ServerProxy;
+
+class KG_SingleClientServerProxy : public IKG_ServerProxy
+{
+public:
+    KG_SingleClientServerProxy();
+    virtual ~KG_SingleClientServerProxy();
+
+public:
+    bool Init(const char * const cszIpAddr, const USHORT uPort);
+    virtual bool Close();
+    virtual bool Activate();
+
+protected:
+    SPIKG_SocketStream  m_spSocketStream;
+    SPKG_SocketAcceptor m_spSocketAcceptor;
+
 private:
-    virtual bool _OnClientClosed   (SPIKG_SocketStream &spStream)                              = 0;
-    virtual bool _OnClientConnected(SPIKG_SocketStream &spStream)                              = 0;
-    virtual bool _OnClientDataRecvd(SPIKG_SocketStream &spStream, xbuff::SPIKG_Buffer &spBuff) = 0;
+    void ProcessAccept();
+    void ProcessPackage();
+    void CloseConnection();
 };
 
 KG_NAMESPACE_END
