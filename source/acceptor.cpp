@@ -82,11 +82,7 @@ int KG_SocketAcceptor::Accept(SPIKG_SocketStream &spSocketStream, const timeval 
     {
         nRetCode = KG_CheckSocketRecvEx(m_nSocket, cpcTimeout);
         KG_PROCESS_ERROR(nRetCode >= 0);                                // error
-
-        if (0 == nRetCode)
-        {                                                               // timeout
-            nResult = 0; goto Exit0;
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // timeout
 
         xzero::KG_ZeroMemory(&saAddress, sizeof(saAddress));
         nSocket = (SOCKET)::accept(m_nSocket, (struct sockaddr *)&saAddress, &nAddrLen);
@@ -104,12 +100,10 @@ int KG_SocketAcceptor::Accept(SPIKG_SocketStream &spSocketStream, const timeval 
             /* WSAEWOULDBLOCK : non waiting connection in listen-socket queue.  */
             /*------------------------------------------------------------------*/
             nRetCode = KG_IsSocketEWouldBlock();
-            if (nRetCode)
-            { // accept success, try next loop, do not need assert here.
-                nResult = 0; goto Exit0;                                // time out
-            }
 
-            nResult = -1; goto Exit0;
+            // accept success, try next loop, do not need assert here.
+            KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                   // time out
+            KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                   // error
         }
 
         break;                                                          // success

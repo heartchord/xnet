@@ -139,11 +139,7 @@ void KG_SingleClientServerProxy::ProcessAccept()
 
     nRetCode = m_spSocketAcceptor->Accept(m_spSocketStream, &tm);
     KG_PROCESS_ERROR(nRetCode >= 0);                                    // error
-
-    if (0 == nRetCode)
-    {
-        nResult = 0; goto Exit0;                                        // time out
-    }
+    KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                      // time out
 
     nRetCode = _OnClientConnected(m_spSocketStream);
     KG_PROCESS_ERROR(nRetCode);                                         // error
@@ -173,11 +169,7 @@ void KG_SingleClientServerProxy::ProcessPackage()
     {
         nRetCode = m_spSocketStream->Recv(spBuff, 4, &tv);
         KG_PROCESS_ERROR_Q(nRetCode >= 0);                              // error
-
-        if (0 == nRetCode)
-        {
-            nResult = 0; goto Exit0;                                    // time out
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // time out
 
         xzero::KG_DebugPrintln("[MSG] KG_SingleClientServerProxy - Package Serial = %d", nPackageSerial++);
 

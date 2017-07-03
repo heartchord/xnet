@@ -208,14 +208,13 @@ int KG_SocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSi
 
     // recv pak head
     nRetCode = KG_CheckRecvSocketData(m_nSocket, (char * const)&uPakSize, uPakHeadSize, &uRecvBytes, cpcTimeOut);
-    KG_PROCESS_ERROR(nRetCode >= 0);                                    // error
+    KG_PROCESS_ERROR_Q(nRetCode >= 0);                                  // error : include disconnection
 
     if (0 == nRetCode)
     {
-        if (0 == uRecvBytes)
-        { // no data in socket buffer
-            nResult = 0; goto Exit0;                                    // timeout
-        }
+        // no data in socket buffer
+        KG_PROCESS_SUCCESS_RET_CODE(0 == uRecvBytes, 0);                // time out
+        // incomplete data in socket buffer
         KG_PROCESS_ERROR(false);                                        // error : no buffer, incomplete data
     }
 

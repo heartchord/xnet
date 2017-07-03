@@ -96,21 +96,17 @@ int KG_CheckSocketSend(SOCKET nSocket, const timeval *pcTimeOut)
 
     for (;;)
     {
-        fd_set fdSend; FD_ZERO(&fdSend); FD_SET(nSocket, &fdSend);
+        fd_set fds; FD_ZERO(&fds); FD_SET(nSocket, &fds);
+
         /*----------------------------------------------------------------------------------------------------------*/
         /*     select operation can be used upon blocked and non-blocked socket both, to check if it can send data. */
         /* And the time-out is effective both. The difference between both situation is that:                       */
         /*     (1) ::send() operation will be blocked upon blocked socket.                                          */
         /*     (2) ::send() operation will be non-blocked upon non-blocked socket.                                  */
         /*----------------------------------------------------------------------------------------------------------*/
-
-        nRetCode = ::select(nSocket + 1, 0, &fdSend, 0, pcTimeOut);
+        nRetCode = ::select(nSocket + 1, 0, &fds, 0, pcTimeOut);
         KG_PROCESS_SUCCESS(nRetCode > 0);                               // success
-
-        if (0 == nRetCode)
-        {                                                               // time out
-            nResult = 0; goto Exit0;
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // time out
 
         nRetCode = KG_IsSocketInterrupted();                            // interrupted, continue
         if (nRetCode)
@@ -118,13 +114,9 @@ int KG_CheckSocketSend(SOCKET nSocket, const timeval *pcTimeOut)
             continue;
         }
 
-        nRetCode = KG_IsSocketEWouldBlock();                            // would block == time out
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        nRetCode = KG_IsSocketEWouldBlock();
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // would block == time out
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 
 Exit1:
@@ -142,15 +134,11 @@ int KG_CheckSocketRecv(SOCKET nSocket, const timeval *pcTimeOut)
 
     for (;;)
     {
-        fd_set fdRead; FD_ZERO(&fdRead); FD_SET(nSocket, &fdRead);
+        fd_set fds; FD_ZERO(&fds); FD_SET(nSocket, &fds);
 
-        nRetCode = ::select(nSocket + 1, &fdRead, 0, 0, pcTimeOut);
+        nRetCode = ::select(nSocket + 1, &fds, 0, 0, pcTimeOut);
         KG_PROCESS_SUCCESS(nRetCode > 0);                               // success
-
-        if (0 == nRetCode)
-        {                                                               // time out
-            nResult = 0; goto Exit0;
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // time out
 
         nRetCode = KG_IsSocketInterrupted();                            // interrupted, continue
         if (nRetCode)
@@ -158,13 +146,9 @@ int KG_CheckSocketRecv(SOCKET nSocket, const timeval *pcTimeOut)
             continue;
         }
 
-        nRetCode = KG_IsSocketEWouldBlock();                            // would block == time out
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        nRetCode = KG_IsSocketEWouldBlock();
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // would block == time out
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 
 Exit1:
@@ -185,8 +169,8 @@ int KG_CheckSocketSendEx(SOCKET nSocket, const timeval *pcTimeOut)
     KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    nResult = KG_CheckSocketSend(nSocket, pcTimeOut);
-    goto Exit0;
+    nRetCode = KG_CheckSocketSend(nSocket, pcTimeOut);
+    KG_PROCESS_SUCCESS_RET_CODE(true, nRetCode);
 #else                                                                   // linux   platform
     if (pcTimeOut)
     {
@@ -212,10 +196,7 @@ int KG_CheckSocketSendEx(SOCKET nSocket, const timeval *pcTimeOut)
             KG_PROCESS_SUCCESS(true);
         }
 
-        if (0 == nRetCode)
-        {                                                               // time out
-            nResult = 0; goto Exit0;
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // time out
 
         nRetCode = KG_IsSocketInterrupted();                            // interrupted, continue
         if (nRetCode)
@@ -223,13 +204,9 @@ int KG_CheckSocketSendEx(SOCKET nSocket, const timeval *pcTimeOut)
             continue;
         }
 
-        nRetCode = KG_IsSocketEWouldBlock();                            // would block == time out
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        nRetCode = KG_IsSocketEWouldBlock();
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // would block == time out
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 #endif // KG_PLATFORM_WINDOWS
 
@@ -251,8 +228,8 @@ int KG_CheckSocketRecvEx(SOCKET nSocket, const timeval *pcTimeOut)
     KG_PROCESS_SOCKET_ERROR(nSocket);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    nResult = KG_CheckSocketRecv(nSocket, pcTimeOut);
-    goto Exit0;
+    nRetCode = KG_CheckSocketRecv(nSocket, pcTimeOut);
+    KG_PROCESS_SUCCESS_RET_CODE(true, nRetCode);
 #else                                                                   // linux   platform
     if (pcTimeOut)
     {
@@ -278,10 +255,7 @@ int KG_CheckSocketRecvEx(SOCKET nSocket, const timeval *pcTimeOut)
             KG_PROCESS_SUCCESS(true);
         }
 
-        if (0 == nRetCode)
-        {                                                               // time out
-            nResult = 0; goto Exit0;
-        }
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // time out
 
         nRetCode = KG_IsSocketInterrupted();                            // interrupted, continue
         if (nRetCode)
@@ -289,13 +263,9 @@ int KG_CheckSocketRecvEx(SOCKET nSocket, const timeval *pcTimeOut)
             continue;
         }
 
-        nRetCode = KG_IsSocketEWouldBlock();                            // would block == time out
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        nRetCode = KG_IsSocketEWouldBlock();
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // would block == time out
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 #endif
 
@@ -320,12 +290,8 @@ int KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const UIN
     {
         // check can send
         nRetCode = KG_CheckSocketSendEx(nSocket, pcTimeout);
-        KG_PROCESS_ERROR(nRetCode >= 0);                                // error
-
-        if (0 == nRetCode)
-        {
-            nResult = 0; goto Exit0;                                    // timeout
-        }
+        KG_PROCESS_ERROR(nRetCode >= 0);                                // check error
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // check timeout
 
         // send data
         nRetCode = ::send(nSocket, pcCurrent, uLeftBytes, 0);
@@ -345,12 +311,8 @@ int KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const UIN
         }
 
         nRetCode = KG_IsSocketEWouldBlock();
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;                                    // timeout
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // timeout
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 
     nResult = 1;
@@ -376,12 +338,8 @@ int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBu
     {
         // check can recv
         nRetCode = KG_CheckSocketRecvEx(nSocket, pcTimeout);
-        KG_PROCESS_ERROR(nRetCode >= 0);                                // error
-
-        if (0 == nRetCode)
-        {
-            nResult = 0; goto Exit0;                                    // timeout
-        }
+        KG_PROCESS_ERROR(nRetCode >= 0);                                // check error
+        KG_PROCESS_SUCCESS_RET_CODE(0 == nRetCode, 0);                  // check timeout
 
         // recv
         nRetCode = ::recv(nSocket, pCurrent, uLeftBytes, 0);
@@ -402,12 +360,8 @@ int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBu
         }
 
         nRetCode = KG_IsSocketEWouldBlock();
-        if (nRetCode)
-        {
-            nResult = 0; goto Exit0;                                    // timeout
-        }
-
-        nResult = -1; goto Exit0;                                       // error
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // timeout
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
     }
 
     nResult = 1;
