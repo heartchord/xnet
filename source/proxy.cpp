@@ -132,10 +132,10 @@ void KG_SingleClientServerProxy::ProcessAccept()
 {
     int     nResult  = -1;
     int     nRetCode = 0;
-    timeval tm       = { 0, 0 };
+    timeval tm       = {0, 0};
 
     KG_PROCESS_SUCCESS(m_spSocketStream);                               // connected
-    KG_PROCESS_ERROR(m_spSocketAcceptor);
+    KG_PROCESS_ERROR(m_spSocketAcceptor);                               // not init?
 
     nRetCode = m_spSocketAcceptor->Accept(m_spSocketStream, &tm);
     KG_PROCESS_ERROR(nRetCode >= 0);                                    // error
@@ -159,7 +159,7 @@ void KG_SingleClientServerProxy::ProcessPackage()
     int                 nResult        = -1;
     int                 nRetCode       = 0;
     static int          nPackageSerial = 0;
-    timeval             tv             = { 0, 0 };
+    timeval             tv             = {0, 0};
     xbuff::SPIKG_Buffer spBuff;
 
     KG_PROCESS_ERROR(m_spSocketAcceptor);                               // error
