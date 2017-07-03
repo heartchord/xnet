@@ -2,6 +2,8 @@
 
 #include "acceptor.h"
 
+#include <list>
+
 KG_NAMESPACE_BEGIN(xnet)
 
 class IKG_ServerProxy : private xzero::KG_UnCopyable
@@ -15,7 +17,7 @@ public:
     virtual bool Activate() = 0;
 
 protected:
-    virtual bool _OnClientClosed(SPIKG_SocketStream &spStream);
+    virtual bool _OnClientClosed   (SPIKG_SocketStream &spStream);
     virtual bool _OnClientConnected(SPIKG_SocketStream &spStream);
     virtual bool _OnClientDataRecvd(SPIKG_SocketStream &spStream, xbuff::SPIKG_Buffer &spBuff);
 };
@@ -42,6 +44,29 @@ private:
     void ProcessAccept();
     void ProcessPackage();
     void CloseConnection();
+};
+
+class KG_MultiClientServerProxy : public IKG_ServerProxy
+{
+    typedef std::list<SPIKG_SocketStream> KG_MySocketStreamList;
+public:
+    KG_MultiClientServerProxy();
+    virtual ~KG_MultiClientServerProxy();
+
+public:
+    bool Init(const char * const cszIpAddr, const USHORT uPort);
+    virtual bool Close();
+    virtual bool Activate();
+
+protected:
+    SPKG_SocketAcceptor   m_spSocketAcceptor;
+    KG_MySocketStreamList m_SocketStreamList;
+
+private:
+    void ProcessAccept();
+    void ProcessPackage();
+    void CloseConnection(SPIKG_SocketStream &spStream);
+    int  ProcessOnePackage(SPIKG_SocketStream &spStream);
 };
 
 KG_NAMESPACE_END

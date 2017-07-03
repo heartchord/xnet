@@ -1,6 +1,8 @@
 #include "stream.h"
 #include "wrapper.h"
 
+#include <algorithm>
+
 KG_NAMESPACE_BEGIN(xnet)
 
 // local variables
@@ -260,10 +262,11 @@ bool KG_SocketStream::IsAlive()
     int  nRetCode = false;
     int  nData    = 0;
 
-    KG_PROCESS_SOCKET_ERROR(m_nSocket);
+    nRetCode = IsValid();
+    KG_PROCESS_ERROR_Q(nRetCode);
 
     nRetCode = ::send(m_nSocket, (char *)&nData, 0, 0);                 // send 0-byte to test
-    KG_PROCESS_ERROR(-1 != nRetCode);
+    KG_PROCESS_ERROR_Q(-1 != nRetCode);
 
     bResult = true;
 Exit0:
@@ -272,17 +275,7 @@ Exit0:
 
 bool KG_SocketStream::IsValid()
 {
-    bool bResult  = false;
-    int  nRetCode = false;
-
-    KG_PROCESS_SOCKET_ERROR(m_nSocket);
-
-    nRetCode = IsAlive();
-    KG_PROCESS_ERROR(nRetCode);
-
-    bResult = true;
-Exit0:
-    return bResult;
+    return KG_INVALID_SOCKET != m_nSocket && m_nSocket >= 0;
 }
 
 int KG_SocketStream::GetErrCode() const
