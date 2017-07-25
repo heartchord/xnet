@@ -85,4 +85,79 @@ typedef std::shared_ptr<KG_SocketStream> SPKG_SocketStream;
 SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(SOCKET &nSocket, const sockaddr_in &saAddress,
     const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
+class KG_AsyncSocketStream : public IKG_SocketStream
+{
+public:
+    KG_AsyncSocketStream();
+    virtual ~KG_AsyncSocketStream();
+
+public:
+    bool Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
+
+    bool GetClosedFlag() const;
+    void SetClosedFlag(bool bClosedFlag);
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    bool GetCallBackFlag() const;
+    void SetCallBackFlag(bool bCallBackFlag);
+
+    bool GetRecvCompletedFlag() const;
+    void SetRecvCompletedFlag(bool bRecvCompletedFlag);
+
+    void OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+
+private:
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    int ActivateNextRecv();
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+
+public:
+    virtual bool Open();
+    virtual bool Close();
+
+    virtual int  CheckSend(const timeval * const cpcTimeOut = NULL);
+    virtual int  CheckRecv(const timeval * const cpcTimeOut = NULL);
+
+    virtual int  Send(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSize, const timeval *const cpcTimeOut = NULL);
+    virtual int  Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSize, const timeval *const cpcTimeOut = NULL);
+
+    virtual void SetConnIndex(const int nConnIndex);
+    virtual int  GetConnIndex() const;
+
+    virtual bool IsAlive();
+    virtual bool IsValid();
+
+    virtual int  GetErrCode() const;
+    virtual void GetAddress(struct in_addr *pIp, USHORT *pnPort) const;
+
+protected:
+    SOCKET              m_nSocket;                                      // Socket descriptor
+    struct sockaddr_in  m_saAddress;                                    // Socket address
+    int                 m_nConnIndex;                                   // connection index
+    int                 m_nErrCode;                                     // Last error code
+
+    xbuff::SPIKG_Buffer m_spRecvBuffer;                                 // recv buffer
+    UINT32              m_uRecvHeadPos;                                 // recv head pos in buffer
+    UINT32              m_uRecvTailPos;                                 // recv tail pos in buffer
+
+    bool                m_bClosedFlag;                                  // socket closed flag
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function
+    bool                m_bCallBackFlag;                                // 'IOCompletionCallBack' call back flag
+    int                 m_nCallBackErrCode;                             // 'IOCompletionCallBack' call back error code
+    int                 m_nCallBackDataSize;                            // 'IOCompletionCallBack' call back data size
+    bool                m_bRecvCompletedFlag;                           // recv completed flag
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+
+public:
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    WSAOVERLAPPED       m_wsaOverlapped;                                // used in iocp
+#endif // KG_PLATFORM_WINDOWS
+};
+
 KG_NAMESPACE_END

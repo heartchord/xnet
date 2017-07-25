@@ -60,8 +60,9 @@ Exit0:
 
 KG_SocketStream::KG_SocketStream()
 {
-    m_nSocket  = KG_INVALID_SOCKET;
-    m_nErrCode = 0;
+    m_nSocket    = KG_INVALID_SOCKET;
+    m_nConnIndex = -1;
+    m_nErrCode   = 0;
     xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
 }
 
@@ -370,5 +371,113 @@ Exit0:
     }
     return SPIKG_SocketStream(pSocketStream, KG_SocketStreamDeleter(&l_SocketMemoryPool));
 }
+
+KG_AsyncSocketStream::KG_AsyncSocketStream()
+{
+    m_nSocket            = KG_INVALID_SOCKET;
+    m_nConnIndex         = -1;
+    m_nErrCode           = 0;
+    m_uRecvHeadPos       = 0;
+    m_uRecvTailPos       = 0;
+    xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    m_bCallBackFlag      = false;
+    m_nCallBackErrCode   = 0;
+    m_nCallBackDataSize  = 0;
+    m_bRecvCompletedFlag = false;
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+}
+
+KG_AsyncSocketStream::~KG_AsyncSocketStream()
+{
+    KG_ASSERT(KG_INVALID_SOCKET == m_nSocket && "[ERROR] Forgot invoking KG_AsyncSocketStream::Close()?");
+}
+
+bool KG_AsyncSocketStream::Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize, const UINT32 uSendBuffSize)
+{
+    bool bResult  = false;
+    int  nRetCode = false;
+
+    KG_PROCESS_SOCKET_ERROR(nSocket);
+    KG_PROCESS_ERROR(KG_INVALID_SOCKET == m_nSocket && "[ERROR] It seems KG_SocketStream has been initialized!");
+    KG_PROCESS_ERROR(uRecvBuffSize > 0);
+    KG_PROCESS_ERROR(uSendBuffSize > 0);
+
+    m_nSocket   = nSocket;
+    m_saAddress = saAddress;
+
+    // set socket opts
+    nRetCode = KG_SetSocketBlockMode(m_nSocket, false);
+    KG_PROCESS_ERROR(nRetCode);
+
+    nRetCode = KG_SetSocketRecvBuff(m_nSocket, uRecvBuffSize);
+    KG_PROCESS_ERROR(nRetCode);
+
+    nRetCode = KG_SetSocketSendBuff(m_nSocket, uSendBuffSize);
+    KG_PROCESS_ERROR(nRetCode);
+
+    // alloc recv data buffer
+    m_spRecvBuffer = xbuff::KG_GetSharedBuffFromMemoryPool(&l_SocketMemoryPool, uRecvBuffSize);
+    KG_PROCESS_ERROR(m_spRecvBuffer);
+
+    bResult = true;
+Exit0:
+    if (!bResult)
+    { // Do some clean up here. If an error occurs, don't close socket here, because the ownership isn't transferred.
+        m_nSocket  = KG_INVALID_SOCKET;                                 // close it outside
+        m_nErrCode = KG_GetSocketErrCode();
+
+        m_spRecvBuffer.reset();
+        xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
+    }
+
+    return bResult;
+}
+
+bool KG_AsyncSocketStream::GetClosedFlag() const
+{
+    return m_bClosedFlag;
+}
+
+void KG_AsyncSocketStream::SetClosedFlag(bool bClosedFlag)
+{
+    m_bClosedFlag = true;
+}
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+
+bool KG_AsyncSocketStream::GetCallBackFlag() const
+{
+    return m_bCallBackFlag;
+}
+
+void KG_AsyncSocketStream::SetCallBackFlag(bool bCallBackFlag)
+{
+    m_bCallBackFlag = bCallBackFlag;
+}
+
+bool KG_AsyncSocketStream::GetRecvCompletedFlag() const
+{
+    return m_bRecvCompletedFlag;
+}
+
+void KG_AsyncSocketStream::SetRecvCompletedFlag(bool bRecvCompletedFlag)
+{
+    m_bRecvCompletedFlag = bRecvCompletedFlag;
+}
+
+void KG_AsyncSocketStream::OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
+{
+    UNREFERENCED_PARAMETER(lpOverlapped);
+    m_nCallBackErrCode   = dwErrCode;
+    m_nCallBackDataSize  = dwBytesTransfered;
+    m_bCallBackFlag      = true;
+    m_bRecvCompletedFlag = true;
+}
+
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
 
 KG_NAMESPACE_END
