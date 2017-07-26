@@ -40,22 +40,39 @@ const UINT32 l_uSocketMemBlockSizeArraySize = sizeof(l_uSocketMemBlockSizeArray)
 typedef xzero::KG_MemoryPool<l_uSocketMemBlockSizeArraySize, l_uSocketMemBlockSizeArray> KG_SocketMemoryPool;
 static KG_SocketMemoryPool l_SocketMemoryPool;
 
-bool KG_EncapsulatePakHead(char * const cpBuff, const UINT32 uBuffSize, UINT32 n)
+bool KG_EncapsulatePakHead(char * const cpBuff, const UINT32 uPakHeadSize, UINT32 n)
 {
-    int bResult = false;
+    bool bResult = false;
 
     KG_PROCESS_PTR_ERROR(cpBuff);
-    KG_PROCESS_ERROR(uBuffSize > 0);
+    KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
 
-    for (UINT32 i = 0; i < uBuffSize; i++)
+    for (UINT32 i = 0; i < uPakHeadSize; i++)
     {
         cpBuff[i] = n & 0xFF;
-        n         = n >> 8;
+        n >>= 8;
     }
 
     bResult = true;
 Exit0:
     return bResult;
+}
+
+UINT32 KG_DecapsulatePakHead(char * const cpBuff, const UINT32 uPakHeadSize)
+{
+    UINT32 n = 0;
+
+    KG_PROCESS_PTR_ERROR(cpBuff);
+    KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
+
+    for (UINT32 i = uPakHeadSize - 1; i > 0; i--)
+    {
+        n <<= 8;
+        n += cpBuff[i];
+    }
+
+Exit0:
+    return n;
 }
 
 KG_SocketStream::KG_SocketStream()
@@ -167,30 +184,30 @@ int KG_SocketStream::Send(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSi
 {
     int    nResult   = -1;
     int    nRetCode  = 0;
-    char * pBuff     = NULL;
-    UINT32 uBuffSize = 0;
+    char * pBuf      = NULL;
+    UINT32 uBufSize  = 0;
     UINT32 uReserved = 0;
 
     KG_PROCESS_ERROR(spBuffer);
     KG_PROCESS_SOCKET_ERROR(m_nSocket);
     KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
 
-    uBuffSize = spBuffer->CurSize();
-    KG_PROCESS_ERROR(uBuffSize > 0);
+    uBufSize = spBuffer->CurSize();
+    KG_PROCESS_ERROR(uBufSize > 0);
 
-    pBuff = (char *)spBuffer->Buf();
-    KG_PROCESS_PTR_ERROR(pBuff);
+    pBuf = (char *)spBuffer->Buf();
+    KG_PROCESS_PTR_ERROR(pBuf);
 
     uReserved = spBuffer->ResSize();
     KG_PROCESS_ERROR(uReserved >= uPakHeadSize);
 
     // encapsulate package head
-    pBuff     -= uPakHeadSize;                                          // move pointer to package head position.
-    uBuffSize += uPakHeadSize;                                          // total size = head size + body size.
-    nRetCode = KG_EncapsulatePakHead(pBuff, uPakHeadSize, uBuffSize);
+    pBuf     -= uPakHeadSize;                                          // move pointer to package head position.
+    uBufSize += uPakHeadSize;                                          // total size = head size + body size.
+    nRetCode = KG_EncapsulatePakHead(pBuf, uPakHeadSize, uBufSize);
     KG_PROCESS_ERROR(nRetCode);
 
-    nResult = KG_CheckSendSocketData(m_nSocket, pBuff, uBuffSize, uBuffSize, cpcTimeOut);
+    nResult = KG_CheckSendSocketData(m_nSocket, pBuf, uBufSize, uBufSize, cpcTimeOut);
 Exit0:
     if (-1 == nResult)
     {
@@ -382,10 +399,9 @@ KG_AsyncSocketStream::KG_AsyncSocketStream()
     xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    m_bCallBackFlag      = false;
-    m_nCallBackErrCode   = 0;
-    m_nCallBackDataSize  = 0;
-    m_bRecvCompletedFlag = false;
+    m_bIocpCallBackNotified = false;
+    m_nIocpCallBackErrCode  = 0;
+    m_nIocpCallBackDataSize = 0;
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 }
@@ -436,48 +452,310 @@ Exit0:
     return bResult;
 }
 
-bool KG_AsyncSocketStream::GetClosedFlag() const
-{
-    return m_bClosedFlag;
-}
-
-void KG_AsyncSocketStream::SetClosedFlag(bool bClosedFlag)
-{
-    m_bClosedFlag = true;
-}
-
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 
-bool KG_AsyncSocketStream::GetCallBackFlag() const
+bool KG_AsyncSocketStream::IsCallBackNotified() const
 {
-    return m_bCallBackFlag;
+    return m_bIocpCallBackNotified;
 }
 
-void KG_AsyncSocketStream::SetCallBackFlag(bool bCallBackFlag)
+void KG_AsyncSocketStream::OnCallBackNotified(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
-    m_bCallBackFlag = bCallBackFlag;
+    KG_UNREFERENCED_PARAMETER(lpOverlapped);
+    m_nIocpCallBackErrCode  = dwErrCode;
+    m_nIocpCallBackDataSize = dwBytesTransfered;
+    m_bIocpCallBackNotified = true;
 }
 
-bool KG_AsyncSocketStream::GetRecvCompletedFlag() const
+bool KG_AsyncSocketStream::ActivateNextRecv()
 {
-    return m_bRecvCompletedFlag;
-}
+    bool  bResult      = false;
+    int   nRetCode     = 0;
+    DWORD dwBytesRecvd = 0;
+    DWORD dwFlags      = 0;
 
-void KG_AsyncSocketStream::SetRecvCompletedFlag(bool bRecvCompletedFlag)
-{
-    m_bRecvCompletedFlag = bRecvCompletedFlag;
-}
+    for (;;)
+    {
+        m_wsaBuf.len = m_spRecvBuffer->OriSize() - m_uRecvTailPos;
+        m_wsaBuf.buf = (char *)m_spRecvBuffer->Buf() + m_uRecvTailPos;
 
-void KG_AsyncSocketStream::OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
-{
-    UNREFERENCED_PARAMETER(lpOverlapped);
-    m_nCallBackErrCode   = dwErrCode;
-    m_nCallBackDataSize  = dwBytesTransfered;
-    m_bCallBackFlag      = true;
-    m_bRecvCompletedFlag = true;
+        xzero::KG_ZeroMemory(&m_wsaOverlapped, sizeof(m_wsaOverlapped));
+
+        m_nIocpCallBackErrCode  = 0;
+        m_nIocpCallBackDataSize = 0;
+        m_bIocpCallBackNotified = false;
+
+        dwBytesRecvd = 0;
+        dwFlags      = 0;
+        nRetCode = ::WSARecv(m_nSocket, &m_wsaBuf, 1, &dwBytesRecvd, &dwFlags, &m_wsaOverlapped, NULL);
+        KG_PROCESS_SUCCESS(nRetCode >= 0);
+
+        nRetCode = KG_IsSocketInterrupted();
+        if (nRetCode)
+        {
+            continue;
+        }
+
+        nRetCode = KG_IsSocketEWouldBlock();
+        if (nRetCode)
+        { // no data or in processing
+            break;
+        }
+
+        // error occurs here.
+        // because we post a recv request failed, we must set 'm_bIocpCallBackNotified' to 'true' so that
+        // we can detect this stream is dead and remove it.
+        m_bIocpCallBackNotified = true;
+        m_nErrCode = KG_GetSocketErrCode();
+        KG_PROCESS_ERROR(false);
+    }
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
 }
 
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
+
+bool KG_AsyncSocketStream::Open()
+{
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    bool bResult  = false;
+    int  nRetCode = 0;
+
+    KG_PROCESS_ERROR(!m_bIocpCallBackNotified);
+
+    nRetCode = ActivateNextRecv();
+    KG_PROCESS_ERROR(nRetCode);
+
+    bResult = true;
+Exit0:
+    return bResult;
+#else                                                                   // linux   platform
+    return true;
+#endif // KG_PLATFORM_WINDOWS
+}
+
+bool KG_AsyncSocketStream::Close()
+{
+    bool bResult  = false;
+    int  nRetCode = 0;
+
+    nRetCode = KG_CloseSocketSafely(m_nSocket);
+    KG_PROCESS_ERROR(nRetCode);
+
+    m_nConnIndex   = -1;
+    m_nErrCode     = 0;
+    m_uRecvHeadPos = 0;
+    m_uRecvTailPos = 0;
+    xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    m_bIocpCallBackNotified = false;
+    m_nIocpCallBackErrCode  = 0;
+    m_nIocpCallBackDataSize = 0;
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+
+    bResult = true;
+Exit0:
+    return bResult;
+}
+
+int KG_AsyncSocketStream::CheckSend(const timeval * const cpcTimeOut)
+{
+    KG_UNREFERENCED_PARAMETER(cpcTimeOut);
+    KG_ASSERT(false && "[ERROR] KG_AsyncSocketStream::CheckSend() can't be invoked!");
+    return -1;
+}
+
+int KG_AsyncSocketStream::CheckRecv(const timeval * const cpcTimeOut)
+{
+    KG_UNREFERENCED_PARAMETER(cpcTimeOut);
+    KG_ASSERT(false && "[ERROR] KG_AsyncSocketStream::CheckRecv() can't be invoked!");
+    return -1;
+}
+
+int KG_AsyncSocketStream::Send(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSize, const timeval *const cpcTimeOut)
+{
+    int    nResult   = -1;
+    int    nRetCode  = 0;
+    char * pBuf      = NULL;
+    UINT32 uBufSize  = 0;
+    UINT32 uReserved = 0;
+
+    KG_UNREFERENCED_PARAMETER(cpcTimeOut);
+
+    KG_PROCESS_ERROR(spBuffer);
+    KG_PROCESS_SOCKET_ERROR(m_nSocket);
+    KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
+
+    uBufSize = spBuffer->CurSize();
+    KG_PROCESS_ERROR(uBufSize > 0);
+
+    pBuf     = (char *)spBuffer->Buf();
+    KG_PROCESS_PTR_ERROR(pBuf);
+
+    uReserved = spBuffer->ResSize();
+    KG_PROCESS_ERROR(uReserved >= uPakHeadSize);
+
+    // encapsulate package head
+    pBuf     -= uPakHeadSize;                                           // move pointer to package head position.
+    uBufSize += uPakHeadSize;                                           // total size = head size + body size.
+    nRetCode = KG_EncapsulatePakHead(pBuf, uPakHeadSize, uBufSize);
+    KG_PROCESS_ERROR(nRetCode);
+
+    while (uBufSize > 0)
+    {
+        nRetCode = ::send(m_nSocket, pBuf, uBufSize, 0);
+        KG_PROCESS_ERROR_Q(0 != nRetCode);                              // disconnected == error
+
+        if (nRetCode > 0)
+        {                                                               // success
+            pBuf     += nRetCode;
+            uBufSize -= nRetCode;
+            continue;
+        }
+
+        nRetCode = KG_IsSocketInterrupted();
+        if (nRetCode)
+        {                                                               // interrupted
+            continue;
+        }
+
+        nRetCode = KG_IsSocketEWouldBlock();
+        KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                       // timeout
+        KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                       // error
+    }
+
+    nResult = 1;
+Exit0:
+    if (-1 == nResult)
+    {
+        m_nErrCode = KG_GetSocketErrCode();
+    }
+    return nResult;
+}
+
+int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakHeadSize, const timeval *const cpcTimeOut)
+{
+    int    nResult    = -1;
+    int    nRetCode   = false;
+    UINT32 uRecvdSize = 0;
+    UINT32 uPakSize   = 0;
+    UINT32 uBufSize   = 0;
+    char * pBuf       = NULL;
+
+    KG_UNREFERENCED_PARAMETER(cpcTimeOut);
+
+    KG_PROCESS_ERROR(m_spRecvBuffer);
+    KG_PROCESS_SOCKET_ERROR(m_nSocket);
+    KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
+
+    uBufSize = m_spRecvBuffer->OriSize();                               // total buffer size
+    pBuf     = static_cast<char *>(m_spRecvBuffer->Buf());              // buffer pointer
+
+    for (;;)
+    {
+    #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bIocpCallBackNotified,      0);   // timeout : there is no data reached.
+        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nIocpCallBackErrCode, -1);   // error   : inner system error occurs.
+        KG_PROCESS_ERROR_RET_CODE_Q(m_nIocpCallBackDataSize > 0, -1);   // error
+
+        m_uRecvTailPos += m_nIocpCallBackDataSize;                      // increase tail pos
+        KG_PROCESS_ERROR_RET_CODE(m_uRecvTailPos <= uBufSize, -1);      // error
+        m_nIocpCallBackDataSize = 0;
+    #endif // KG_PLATFORM_WINDOWS
+
+        // read complete package
+        uRecvdSize = m_uRecvTailPos - m_uRecvHeadPos;                       // recvd data size
+        if (uRecvdSize >= uPakHeadSize)
+        { // detecting the package head
+            uPakSize = KG_DecapsulatePakHead(pBuf + m_uRecvHeadPos, uPakHeadSize);
+            KG_PROCESS_ERROR_RET_CODE(uPakSize > uPakHeadSize, -1);     // error : forbid empty package
+            KG_PROCESS_ERROR_RET_CODE(uPakSize <= uBufSize,    -1);     // error : make sure the size of package is smaller than buffer.
+            KG_PROCESS_SUCCESS(uPakSize <= uRecvdSize);                 // success : check if we already have package completely received.
+        }
+
+        if (m_uRecvTailPos == uBufSize)
+        { // if we have reached the end, move the rest data to the beginning of the internal buffer.
+            uRecvdSize = m_uRecvTailPos - m_uRecvHeadPos;
+            ::memmove(pBuf, pBuf + m_uRecvHeadPos, uRecvdSize);
+            m_uRecvHeadPos = 0;
+            m_uRecvTailPos = m_uRecvHeadPos + uRecvdSize;
+        }
+
+    #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
+        nRetCode = ActivateNextRecv();                                  // try to activate next recv
+        KG_PROCESS_ERROR_RET_CODE(nRetCode, -1);                        // error
+        KG_PROCESS_ERROR_RET_CODE_Q(false,   0);                        // timeout
+    #else                                                               // linux   platform
+
+    #endif // KG_PLATFORM_WINDOWS
+    }
+
+Exit1:
+    uPakSize       -= uPakHeadSize;
+    m_uRecvHeadPos += uPakHeadSize;
+
+    spBuffer = xbuff::KG_GetSharedBuffFromMemoryPool(&l_SocketMemoryPool, uPakSize);
+    KG_PROCESS_ERROR_RET_CODE(spBuffer, -1);
+
+    ::memcpy(spBuffer->Buf(), pBuf + m_uRecvHeadPos, uPakSize);
+    m_uRecvHeadPos += uPakSize;
+
+    nResult = 1;
+Exit0:
+    if (-1 == nResult)
+    {
+        m_nErrCode = KG_GetSocketErrCode();
+    }
+    return nResult;
+}
+
+void KG_AsyncSocketStream::SetConnIndex(const int nConnIndex)
+{
+    m_nConnIndex = nConnIndex;
+}
+
+int KG_AsyncSocketStream::GetConnIndex() const
+{
+    return m_nConnIndex;
+}
+
+bool KG_AsyncSocketStream::IsAlive()
+{
+    bool bResult  = false;
+    int  nRetCode = false;
+    int  nData    = 0;
+
+    nRetCode = IsValid();
+    KG_PROCESS_ERROR_Q(nRetCode);
+
+    nRetCode = ::send(m_nSocket, (char *)&nData, 0, 0);                 // send 0-byte to test
+    KG_PROCESS_ERROR_Q(-1 != nRetCode);
+
+    bResult = true;
+Exit0:
+    return bResult;
+}
+
+bool KG_AsyncSocketStream::IsValid()
+{
+    return KG_INVALID_SOCKET != m_nSocket && m_nSocket >= 0;
+}
+
+int KG_AsyncSocketStream::GetErrCode() const
+{
+    return m_nErrCode;
+}
+
+void KG_AsyncSocketStream::GetAddress(struct in_addr *pIp, USHORT *pnPort) const
+{
+    *pIp    = m_saAddress.sin_addr;
+    *pnPort = m_saAddress.sin_port;
+}
 
 KG_NAMESPACE_END

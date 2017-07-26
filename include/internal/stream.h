@@ -87,30 +87,22 @@ SPIKG_SocketStream KG_GetSocketStreamFromMemoryPool(SOCKET &nSocket, const socka
 
 class KG_AsyncSocketStream : public IKG_SocketStream
 {
-public:
+public: // constructor & destructor
     KG_AsyncSocketStream();
     virtual ~KG_AsyncSocketStream();
 
-public:
+public: // public functions
     bool Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
-    bool GetClosedFlag() const;
-    void SetClosedFlag(bool bClosedFlag);
-
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    bool GetCallBackFlag() const;
-    void SetCallBackFlag(bool bCallBackFlag);
-
-    bool GetRecvCompletedFlag() const;
-    void SetRecvCompletedFlag(bool bRecvCompletedFlag);
-
-    void OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
+    bool IsCallBackNotified() const;
+    void OnCallBackNotified(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
-private:
+private: // private functions
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    int ActivateNextRecv();
+    bool ActivateNextRecv();
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
@@ -143,14 +135,11 @@ protected:
     UINT32              m_uRecvHeadPos;                                 // recv head pos in buffer
     UINT32              m_uRecvTailPos;                                 // recv tail pos in buffer
 
-    bool                m_bClosedFlag;                                  // socket closed flag
-
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function
-    bool                m_bCallBackFlag;                                // 'IOCompletionCallBack' call back flag
-    int                 m_nCallBackErrCode;                             // 'IOCompletionCallBack' call back error code
-    int                 m_nCallBackDataSize;                            // 'IOCompletionCallBack' call back data size
-    bool                m_bRecvCompletedFlag;                           // recv completed flag
+    WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function.
+    bool                m_bIocpCallBackNotified;                        // 'IOCompletionCallBack' callback notified?
+    int                 m_nIocpCallBackErrCode;                         // 'IOCompletionCallBack' callback error code.
+    int                 m_nIocpCallBackDataSize;                        // 'IOCompletionCallBack' callback data size.
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
