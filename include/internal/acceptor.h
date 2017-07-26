@@ -22,4 +22,10 @@ public:
 typedef KG_SocketAcceptor                 *PKG_SocketAcceptor;
 typedef std::shared_ptr<KG_SocketAcceptor> SPKG_SocketAcceptor;
 
+class KG_AsyncSocketAcceptor : private xzero::KG_UnCopyable
+{
+private:
+    SOCKET m_nSocket;                                                 // listen socket
+};
+
 KG_NAMESPACE_END

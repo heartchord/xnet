@@ -32,6 +32,9 @@
     <ClInclude Include="include\internal\proxy.h">
       <Filter>include\internal</Filter>
     </ClInclude>
+    <ClInclude Include="include\internal\event.h">
+      <Filter>include\internal</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\xnet.cpp">
@@ -47,6 +50,9 @@
       <Filter>source</Filter>
     </ClCompile>
     <ClCompile Include="source\proxy.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="source\event.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>
