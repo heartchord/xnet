@@ -399,9 +399,11 @@ KG_AsyncSocketStream::KG_AsyncSocketStream()
     xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    m_bIocpCallBackNotified = false;
-    m_nIocpCallBackErrCode  = 0;
-    m_nIocpCallBackDataSize = 0;
+    m_bRecvCompleted         = false;
+    m_bDelayDestorying       = false;
+    m_bCallbackNotified      = false;
+    m_nRecvCompletedErrCode  = 0;
+    m_bRecvCompletedDataSize = 0;
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 }
@@ -454,20 +456,52 @@ Exit0:
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 
-bool KG_AsyncSocketStream::IsCallBackNotified() const
+bool KG_AsyncSocketStream::IsRecvCompleted() const
 {
-    return m_bIocpCallBackNotified;
+    return m_bRecvCompleted;
 }
 
-void KG_AsyncSocketStream::OnCallBackNotified(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
+bool KG_AsyncSocketStream::IsDelayDestorying() const
+{
+    return m_bDelayDestorying;
+}
+
+bool KG_AsyncSocketStream::IsCallbackNotified() const
+{
+    return m_bCallbackNotified;
+}
+
+void KG_AsyncSocketStream::OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
 {
     KG_UNREFERENCED_PARAMETER(lpOverlapped);
-    m_nIocpCallBackErrCode  = dwErrCode;
-    m_nIocpCallBackDataSize = dwBytesTransfered;
-    m_bIocpCallBackNotified = true;
+    m_nRecvCompletedErrCode  = dwErrCode;
+    m_bRecvCompletedDataSize = dwBytesTransfered;
+    m_bRecvCompleted         = true;
+    m_bCallbackNotified      = true;
 }
 
-bool KG_AsyncSocketStream::ActivateNextRecv()
+void KG_AsyncSocketStream::DoWaitCallbackNotified()
+{
+    m_bCallbackNotified = false;
+}
+
+bool KG_AsyncSocketStream::_Close()
+{
+    int nResult  = false;
+    int nRetCode = false;
+
+    nRetCode = KG_CloseSocketSafely(m_nSocket);
+    KG_PROCESS_ERROR(nRetCode);
+
+    // delay to destroy it.
+    m_bDelayDestorying = true;
+
+    nResult = true;
+Exit0:
+    return nResult;
+}
+
+bool KG_AsyncSocketStream::_ActivateNextRecv()
 {
     bool  bResult      = false;
     int   nRetCode     = 0;
@@ -481,9 +515,9 @@ bool KG_AsyncSocketStream::ActivateNextRecv()
 
         xzero::KG_ZeroMemory(&m_wsaOverlapped, sizeof(m_wsaOverlapped));
 
-        m_nIocpCallBackErrCode  = 0;
-        m_nIocpCallBackDataSize = 0;
-        m_bIocpCallBackNotified = false;
+        m_nRecvCompletedErrCode  = 0;
+        m_bRecvCompletedDataSize = 0;
+        m_bRecvCompleted         = false;
 
         dwBytesRecvd = 0;
         dwFlags      = 0;
@@ -505,7 +539,7 @@ bool KG_AsyncSocketStream::ActivateNextRecv()
         // error occurs here.
         // because we post a recv request failed, we must set 'm_bIocpCallBackNotified' to 'true' so that
         // we can detect this stream is dead and remove it.
-        m_bIocpCallBackNotified = true;
+        m_bRecvCompleted = true;
         m_nErrCode = KG_GetSocketErrCode();
         KG_PROCESS_ERROR(false);
     }
@@ -525,9 +559,9 @@ bool KG_AsyncSocketStream::Open()
     bool bResult  = false;
     int  nRetCode = 0;
 
-    KG_PROCESS_ERROR(!m_bIocpCallBackNotified);
+    KG_PROCESS_ERROR(!m_bRecvCompleted);
 
-    nRetCode = ActivateNextRecv();
+    nRetCode = _ActivateNextRecv();
     KG_PROCESS_ERROR(nRetCode);
 
     bResult = true;
@@ -543,7 +577,7 @@ bool KG_AsyncSocketStream::Close()
     bool bResult  = false;
     int  nRetCode = 0;
 
-    nRetCode = KG_CloseSocketSafely(m_nSocket);
+    nRetCode = _Close();
     KG_PROCESS_ERROR(nRetCode);
 
     m_nConnIndex   = -1;
@@ -553,9 +587,11 @@ bool KG_AsyncSocketStream::Close()
     xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    m_bIocpCallBackNotified = false;
-    m_nIocpCallBackErrCode  = 0;
-    m_nIocpCallBackDataSize = 0;
+    m_bRecvCompleted         = false;
+    m_bDelayDestorying       = false;
+    m_bCallbackNotified      = false;
+    m_nRecvCompletedErrCode  = 0;
+    m_bRecvCompletedDataSize = 0;
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
@@ -660,13 +696,13 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
     for (;;)
     {
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
-        KG_PROCESS_ERROR_RET_CODE_Q(m_bIocpCallBackNotified,      0);   // timeout : there is no data reached.
-        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nIocpCallBackErrCode, -1);   // error   : inner system error occurs.
-        KG_PROCESS_ERROR_RET_CODE_Q(m_nIocpCallBackDataSize > 0, -1);   // error
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,              0);   // timeout : there is no data reached.
+        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode, -1);   // error   : inner system error occurs.
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompletedDataSize > 0, -1);   // error
 
-        m_uRecvTailPos += m_nIocpCallBackDataSize;                      // increase tail pos
+        m_uRecvTailPos += m_bRecvCompletedDataSize;                      // increase tail pos
         KG_PROCESS_ERROR_RET_CODE(m_uRecvTailPos <= uBufSize, -1);      // error
-        m_nIocpCallBackDataSize = 0;
+        m_bRecvCompletedDataSize = 0;
     #endif // KG_PLATFORM_WINDOWS
 
         // read complete package
@@ -688,7 +724,7 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
         }
 
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
-        nRetCode = ActivateNextRecv();                                  // try to activate next recv
+        nRetCode = _ActivateNextRecv();                                  // try to activate next recv
         KG_PROCESS_ERROR_RET_CODE(nRetCode, -1);                        // error
         KG_PROCESS_ERROR_RET_CODE_Q(false,   0);                        // timeout
     #else                                                               // linux   platform

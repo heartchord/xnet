@@ -132,4 +132,85 @@ Exit0:
     return nResult;
 }
 
+KG_AsyncSocketStreamList::KG_AsyncSocketStreamList()
+{
+}
+
+KG_AsyncSocketStreamList::~KG_AsyncSocketStreamList()
+{
+}
+
+void KG_AsyncSocketStreamList::Insert(SPIKG_SocketStream spStream)
+{
+    if (!spStream)
+    {
+        return;
+    }
+
+    m_StreamList.push_back(spStream);
+}
+
+void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream spStream)
+{
+    if (!spStream)
+    {
+        return;
+    }
+
+    auto it = std::find(m_StreamList.begin(), m_StreamList.end(), spStream);
+    if (m_StreamList.end() == it)
+    {
+        return;
+    }
+
+    m_StreamList.erase(it);
+}
+
+void KG_AsyncSocketStreamList::Destroy()
+{
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    return ProcessDestroy();
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+}
+
+bool KG_AsyncSocketStreamList::Activate(UINT32 uMaxCount, UINT32 &uCurCount, PKG_SocketEvent pEventList)
+{
+
+}
+
+void KG_AsyncSocketStreamList::ProcessDestroy()
+{
+    int                   nRetCode = 0;
+    PKG_AsyncSocketStream pStream  = NULL;
+
+    for (;;)
+    {
+        for (auto it = m_StreamList.begin(); it != m_StreamList.end();)
+        {
+            pStream = static_cast<PKG_AsyncSocketStream>(it->get());
+
+            if (!pStream)
+            { // pStream is NULL
+                KG_ASSERT(false);
+                m_StreamList.erase(it++);
+                continue;
+            }
+
+            nRetCode = pStream->IsValid();
+            if (!nRetCode)
+            {
+
+            }
+
+
+        }
+
+        if (!m_StreamList.empty())
+        {
+            xzero::KG_MilliSleep(50);
+        }
+    }
+}
+
 KG_NAMESPACE_END

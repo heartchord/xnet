@@ -95,18 +95,24 @@ public: // public functions
     bool Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    bool IsCallBackNotified() const;
-    void OnCallBackNotified(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
+    bool IsRecvCompleted()    const;
+    bool IsDelayDestorying()  const;
+    bool IsCallbackNotified() const;
+
+    void OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
+    void DoWaitCallbackNotified();
+
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
 private: // private functions
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    bool ActivateNextRecv();
+    bool _Close();
+    bool _ActivateNextRecv();
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
-public:
+public: // override functions
     virtual bool Open();
     virtual bool Close();
 
@@ -137,9 +143,11 @@ protected:
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function.
-    bool                m_bIocpCallBackNotified;                        // 'IOCompletionCallBack' callback notified?
-    int                 m_nIocpCallBackErrCode;                         // 'IOCompletionCallBack' callback error code.
-    int                 m_nIocpCallBackDataSize;                        // 'IOCompletionCallBack' callback data size.
+    bool                m_bDelayDestorying;                             // 
+    bool                m_bCallbackNotified;                            //
+    bool                m_bRecvCompleted;                               // 'IOCompletionCallBack' callback notified?
+    int                 m_nRecvCompletedErrCode;                        // 'IOCompletionCallBack' callback error code.
+    int                 m_bRecvCompletedDataSize;                       // 'IOCompletionCallBack' callback data size.
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
@@ -148,5 +156,8 @@ public:
     WSAOVERLAPPED       m_wsaOverlapped;                                // used in iocp
 #endif // KG_PLATFORM_WINDOWS
 };
+
+typedef KG_AsyncSocketStream *                PKG_AsyncSocketStream;
+typedef std::shared_ptr<KG_AsyncSocketStream> SPKG_AsyncSocketStream;
 
 KG_NAMESPACE_END
