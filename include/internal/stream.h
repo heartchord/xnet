@@ -2,6 +2,8 @@
 
 #include "public.h"
 
+#include <list>
+
 KG_NAMESPACE_BEGIN(xnet)
 
 class IKG_SocketStream : private xzero::KG_UnCopyable
@@ -107,7 +109,6 @@ public: // public functions
 
 private: // private functions
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    bool _Close();
     bool _ActivateNextRecv();
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
@@ -141,13 +142,14 @@ protected:
     UINT32              m_uRecvHeadPos;                                 // recv head pos in buffer
     UINT32              m_uRecvTailPos;                                 // recv tail pos in buffer
 
+    bool                m_bDelayDestorying;                             // delay destorying socket stream
+
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function.
-    bool                m_bDelayDestorying;                             // 
-    bool                m_bCallbackNotified;                            //
-    bool                m_bRecvCompleted;                               // 'IOCompletionCallBack' callback notified?
-    int                 m_nRecvCompletedErrCode;                        // 'IOCompletionCallBack' callback error code.
-    int                 m_bRecvCompletedDataSize;                       // 'IOCompletionCallBack' callback data size.
+    bool                m_bCallbackNotified;                            // 'IOCompletionCallBack' callback notified?
+    bool                m_bRecvCompleted;                               // 'IOCompletionCallBack' recv completed?
+    int                 m_nRecvCompletedErrCode;                        // 'IOCompletionCallBack' recv completed error code.
+    int                 m_bRecvCompletedDataSize;                       // 'IOCompletionCallBack' recv completed data size.
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
@@ -159,5 +161,30 @@ public:
 
 typedef KG_AsyncSocketStream *                PKG_AsyncSocketStream;
 typedef std::shared_ptr<KG_AsyncSocketStream> SPKG_AsyncSocketStream;
+
+class KG_SocketEvent;
+class KG_AsyncSocketStreamList : private xzero::KG_UnCopyable
+{
+private:
+    std::list<SPIKG_SocketStream> m_StreamList;
+
+public:
+    KG_AsyncSocketStreamList();
+    ~KG_AsyncSocketStreamList();
+
+public:
+    void Insert(SPIKG_SocketStream spStream);
+    void Remove(SPIKG_SocketStream spStream);
+    void Destroy();
+
+    bool Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
+
+private:
+    void _ProcessDestroy();
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    bool _ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+};
 
 KG_NAMESPACE_END

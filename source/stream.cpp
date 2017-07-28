@@ -1,4 +1,4 @@
-#include "stream.h"
+#include "event.h"
 #include "wrapper.h"
 
 #include <algorithm>
@@ -485,22 +485,6 @@ void KG_AsyncSocketStream::DoWaitCallbackNotified()
     m_bCallbackNotified = false;
 }
 
-bool KG_AsyncSocketStream::_Close()
-{
-    int nResult  = false;
-    int nRetCode = false;
-
-    nRetCode = KG_CloseSocketSafely(m_nSocket);
-    KG_PROCESS_ERROR(nRetCode);
-
-    // delay to destroy it.
-    m_bDelayDestorying = true;
-
-    nResult = true;
-Exit0:
-    return nResult;
-}
-
 bool KG_AsyncSocketStream::_ActivateNextRecv()
 {
     bool  bResult      = false;
@@ -574,30 +558,18 @@ Exit0:
 
 bool KG_AsyncSocketStream::Close()
 {
-    bool bResult  = false;
-    int  nRetCode = 0;
+    int nResult  = false;
+    int nRetCode = false;
 
-    nRetCode = _Close();
+    nRetCode = KG_CloseSocketSafely(m_nSocket);
     KG_PROCESS_ERROR(nRetCode);
 
-    m_nConnIndex   = -1;
-    m_nErrCode     = 0;
-    m_uRecvHeadPos = 0;
-    m_uRecvTailPos = 0;
-    xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
+    // delay to destroy it.
+    m_bDelayDestorying = true;
 
-#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
-    m_bRecvCompleted         = false;
-    m_bDelayDestorying       = false;
-    m_bCallbackNotified      = false;
-    m_nRecvCompletedErrCode  = 0;
-    m_bRecvCompletedDataSize = 0;
-#else                                                                   // linux   platform
-#endif // KG_PLATFORM_WINDOWS
-
-    bResult = true;
+    nResult = true;
 Exit0:
-    return bResult;
+    return nResult;
 }
 
 int KG_AsyncSocketStream::CheckSend(const timeval * const cpcTimeOut)
@@ -696,11 +668,11 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
     for (;;)
     {
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
-        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,              0);   // timeout : there is no data reached.
-        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode, -1);   // error   : inner system error occurs.
-        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompletedDataSize > 0, -1);   // error
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,              0);  // timeout : there is no data reached.
+        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode, -1);  // error   : inner system error occurs.
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompletedDataSize > 0, -1);  // error
 
-        m_uRecvTailPos += m_bRecvCompletedDataSize;                      // increase tail pos
+        m_uRecvTailPos += m_bRecvCompletedDataSize;                     // increase tail pos
         KG_PROCESS_ERROR_RET_CODE(m_uRecvTailPos <= uBufSize, -1);      // error
         m_bRecvCompletedDataSize = 0;
     #endif // KG_PLATFORM_WINDOWS
@@ -792,6 +764,165 @@ void KG_AsyncSocketStream::GetAddress(struct in_addr *pIp, USHORT *pnPort) const
 {
     *pIp    = m_saAddress.sin_addr;
     *pnPort = m_saAddress.sin_port;
+}
+
+KG_AsyncSocketStreamList::KG_AsyncSocketStreamList()
+{
+}
+
+KG_AsyncSocketStreamList::~KG_AsyncSocketStreamList()
+{
+}
+
+void KG_AsyncSocketStreamList::Insert(SPIKG_SocketStream spStream)
+{
+    if (!spStream)
+    {
+        return;
+    }
+
+    m_StreamList.push_back(spStream);
+}
+
+void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream spStream)
+{
+    if (!spStream)
+    {
+        return;
+    }
+
+    auto it = std::find(m_StreamList.begin(), m_StreamList.end(), spStream);
+    if (m_StreamList.end() == it)
+    {
+        return;
+    }
+
+    m_StreamList.erase(it);
+}
+
+void KG_AsyncSocketStreamList::Destroy()
+{
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    return _ProcessDestroy();
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+}
+
+bool KG_AsyncSocketStreamList::Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
+{
+    return true;
+}
+
+void KG_AsyncSocketStreamList::_ProcessDestroy()
+{
+    int                   nRetCode = 0;
+    PKG_AsyncSocketStream pStream  = NULL;
+
+    for (;;)
+    {
+        for (auto it = m_StreamList.begin(); it != m_StreamList.end();)
+        {
+            pStream = static_cast<PKG_AsyncSocketStream>(it->get());
+
+            if (!pStream)
+            { // pStream is NULL
+                KG_ASSERT(false);
+                m_StreamList.erase(it++);
+                continue;
+            }
+
+            if (!pStream->IsDelayDestorying())
+            { // socket is not int 'DelayDestorying' state, first close it, and set 'DelayDestorying' flag.
+              // Wait 'IOCP' or 'EPOLL' callback, then remove the socket stream.
+                xzero::KG_DebugPrintln("[INFO] AsyncSocketStream(%p) - Delay destorying it.", pStream);
+
+                nRetCode = pStream->Close();
+                KG_ASSERT(nRetCode);
+                it++;
+                continue;
+            }
+
+            if (!pStream->IsRecvCompleted())
+            {
+                xzero::KG_DebugPrintln("[INFO] AsyncSocketStream(%p) is waiting 'IOCompletionCallBack' callback.", pStream);
+                it++;
+                continue;
+            }
+
+            m_StreamList.erase(it++);
+        }
+
+        if (m_StreamList.empty())
+        {
+            break;
+        }
+
+        xzero::KG_MilliSleep(50);
+    }
+}
+
+bool KG_AsyncSocketStreamList::_ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
+{
+    bool                  bResult     = false;
+    int                   nRetCode    = 0;
+    size_t                uListSize   = 0;
+    size_t                uEventCount = 0;
+    PKG_AsyncSocketStream pStream     = NULL;
+
+    KG_PROCESS_PTR_ERROR(pEventList);
+    KG_PROCESS_ERROR(uMaxCount > 0 && uCurCount <= uMaxCount);
+    KG_PROCESS_SUCCESS(uCurCount == uMaxCount);
+
+    uListSize   = m_StreamList.size();
+    uEventCount = uListSize;
+
+    //while (uEventCount--)
+    //{
+    //    pCurrent = (PKG_SocketStreamNode)m_pLastWaitingNode;
+    //    m_pLastWaitingNode = m_pLastWaitingNode->GetNext();
+
+    //    KG_ASSERT(pCurrent->m_spSocketStream);
+    //    pStream = static_cast<PKG_AsyncSocketStream>(pCurrent->m_spSocketStream.Get());
+
+    //    nRetCode = pStream->IsIOCPRecvCompleted();
+    //    if (!nRetCode)
+    //    { // if iocp not recv completed, then continue.
+    //        continue;
+    //    }
+
+    //    nRetCode = pStream->IsStreamNeedToClose();
+    //    if (nRetCode)
+    //    { // if stream should be closed, close then continue.
+    //        pCurrent->Remove();                                         // 从链表中移除
+    //        nRetCode = pCurrent->m_spSocketStream->Close();             // 关闭套接字流
+    //        KG_ASSERT(nRetCode);
+    //        KG_SafelyDeletePtr(pCurrent);                               // 释放节点
+    //        continue;
+    //    }
+
+    //    nRetCode = pStream->IsIOCPWaitNotified();
+    //    if (!nRetCode)
+    //    { // if iocp not recv completed, then continue.
+    //        continue;
+    //    }
+
+    //    if (uCurEventCount >= uMaxEventCount)                           // if reach max event count, then continue
+    //    { // 不进行break的原因是尽量能处理能关闭的套接字流
+    //        continue;
+    //    }
+
+    //    pStream->OnWaitingNotified();
+
+    //    pSocketEventArray[uCurEventCount].m_uSocketEventType = KG_SOCKET_EVENT_READ;
+    //    pSocketEventArray[uCurEventCount].m_spSocketStream = pCurrent->m_spSocketStream;
+    //    uCurEventCount++;
+    //    pStream = NULL;
+    //}
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
 }
 
 KG_NAMESPACE_END
