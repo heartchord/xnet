@@ -27,6 +27,12 @@
 #include "xzero.h"
 #include "xbuff.h"
 
+#undef  KG_MAX_IPV4STR_LEN                                              // 192.168.255.255
+#define KG_MAX_IPV4STR_LEN 15
+
+#undef  KG_MIN_IPV4STR_LEN                                              // 1.1.1.1
+#define KG_MIN_IPV4STR_LEN 7
+
 #undef  KG_INVALID_SOCKET
 #ifdef  KG_PLATFORM_WINDOWS                                             // windows platform
 #define KG_INVALID_SOCKET INVALID_SOCKET                                // type(SOCKET) = UINT32, KG_INVALID_SOCKET = 0xFFFFFFFF
@@ -134,5 +140,7 @@ Exit0:
 
 #endif
 }
+
+bool KG_IsValidIpStr(const char * const cszIp);
 
 KG_NAMESPACE_END
