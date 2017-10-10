@@ -608,49 +608,4 @@ Exit0:
     return bResult;
 }
 
-bool KG_IsValidIpv4Str(const char * const cszIp)
-{
-    bool   bResult       = false;
-    int    nValue        = 0;
-    size_t uStrLen       = 0;
-    size_t uColonNum     = 0;
-    size_t uLastColonPos = 0;
-
-    KG_PROCESS_C_STR_ERROR_Q(cszIp);
-
-    uStrLen = ::strlen(cszIp);
-    KG_PROCESS_ERROR_Q(uStrLen <= KG_MAX_IPV4STR_LEN);
-    KG_PROCESS_ERROR_Q(uStrLen >= KG_MIN_IPV4STR_LEN);
-
-    for (size_t i = 0; i < uStrLen; i++)
-    {
-        if ('.' == cszIp[i])
-        {
-            KG_PROCESS_ERROR_Q(i >  uLastColonPos    );
-            KG_PROCESS_ERROR_Q(i <= uLastColonPos + 3);
-
-            nValue = atoi(cszIp + uLastColonPos + 1);
-            KG_PROCESS_ERROR_Q(nValue >= 0 && nValue <= 255);
-
-            uLastColonPos = i;
-            uColonNum++;
-            continue;
-        }
-
-        KG_PROCESS_ERROR_Q(cszIp[i] >= '0' && cszIp[i] <= '9');
-
-        if ('0' == cszIp[i])
-        {
-            KG_PROCESS_ERROR_Q(i > 0);
-            KG_PROCESS_ERROR_Q(cszIp[i - 1] >= '1' && cszIp[i] <= '9');
-        }
-    }
-
-    KG_PROCESS_ERROR_Q(3 == uColonNum);
-
-    bResult = true;
-Exit0:
-    return bResult;
-}
-
 KG_NAMESPACE_END

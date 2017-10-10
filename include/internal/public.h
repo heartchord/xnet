@@ -141,6 +141,23 @@ Exit0:
 #endif
 }
 
-bool KG_IsValidIpv4Str(const char * const cszIp);
+bool KG_IsValidIpv4Str(const char * const cszIp)
+{
+    bool bResult  = false;
+    int  nRetCode = 0;
+    int  v[4]     = {0};
+
+    nRetCode = ::sscanf(cszIp, "%d.%d.%d.%d", &v[0], &v[1], &v[2], &v[3]);
+    KG_PROCESS_ERROR_Q(4 == nRetCode);
+
+    for(int i = 0; i < 4; i++)
+    {
+        KG_PROCESS_ERROR_Q(v[i] >= 0 && v[i] <= 255);
+    }
+
+    bResult = true;
+Exit0:
+    return bResult;
+}
 
 KG_NAMESPACE_END
