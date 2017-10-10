@@ -141,6 +141,6 @@ Exit0:
 #endif
 }
 
-bool KG_IsValidIpStr(const char * const cszIp);
+bool KG_IsValidIpv4Str(const char * const cszIp);
 
 KG_NAMESPACE_END
