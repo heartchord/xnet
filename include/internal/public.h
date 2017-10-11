@@ -1,4 +1,5 @@
 #pragma once
+#pragma warning(disable:4996)
 
 #ifdef WIN32                                                            // windows platform
 
@@ -24,8 +25,8 @@
 
 #endif
 
-#include "xzero.h"
-#include "xbuff.h"
+#include "../../xzero/include/xzero.h"
+#include "../../xbuff/include/xbuff.h"
 
 #undef  KG_MAX_IPV4STR_LEN                                              // 192.168.255.255
 #define KG_MAX_IPV4STR_LEN 15
