@@ -142,7 +142,7 @@ Exit0:
 #endif
 }
 
-bool KG_IsValidIpv4Str(const char * const cszIp)
+inline bool KG_IsValidIpv4Str(const char * const cszIp)
 {
     bool bResult  = false;
     int  nRetCode = 0;
