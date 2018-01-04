@@ -95,14 +95,13 @@ public: // constructor & destructor
 
 public: // public functions
     bool Init(const SOCKET nSocket, const sockaddr_in &saAddress, const UINT32 uRecvBuffSize = 0, const UINT32 uSendBuffSize = 0);
+    bool IsCallbackNotified() const;
+    void OnRecvCompleted(DWORD dwErrCode = 0, DWORD dwBytesTransfered = 0, LPOVERLAPPED lpOverlapped = NULL);
+    void DoWaitCallbackNotified();
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     bool IsRecvCompleted()    const;
     bool IsDelayDestorying()  const;
-    bool IsCallbackNotified() const;
-
-    void OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped);
-    void DoWaitCallbackNotified();
 
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
@@ -141,15 +140,16 @@ protected:
     xbuff::SPIKG_Buffer m_spRecvBuffer;                                 // recv buffer
     UINT32              m_uRecvHeadPos;                                 // recv head pos in buffer
     UINT32              m_uRecvTailPos;                                 // recv tail pos in buffer
+    xzero::KG_ListNode  m_ListNode;                                     // member for xzero::KG_List
 
     bool                m_bDelayDestorying;                             // delay destorying socket stream
+    bool                m_bCallbackNotified;                            // 'IOCompletionCallBack' or 'EPOLL' callback notified?
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     WSABUF              m_wsaBuf;                                       // used in '::WSARecv' and '::WSASend' function.
-    bool                m_bCallbackNotified;                            // 'IOCompletionCallBack' callback notified?
     bool                m_bRecvCompleted;                               // 'IOCompletionCallBack' recv completed?
     int                 m_nRecvCompletedErrCode;                        // 'IOCompletionCallBack' recv completed error code.
-    int                 m_bRecvCompletedDataSize;                       // 'IOCompletionCallBack' recv completed data size.
+    int                 m_nRecvCompletedDataSize;                       // 'IOCompletionCallBack' recv completed data size.
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 
@@ -166,7 +166,13 @@ class KG_SocketEvent;
 class KG_AsyncSocketStreamList : private xzero::KG_UnCopyable
 {
 private:
-    std::list<SPIKG_SocketStream> m_StreamList;
+    xzero::KG_List      m_StreamList;                                   // stream list
+    xzero::PKG_ListNode m_pLastProcessedNode;                           // pointer to last processed stream
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+#else                                                                   // linux   platform
+    int      m_nEpollHandle;                                            // windows不使用，linux使用
+#endif // KG_PLATFORM_WINDOWS
 
 public:
     KG_AsyncSocketStreamList();

@@ -396,14 +396,15 @@ KG_AsyncSocketStream::KG_AsyncSocketStream()
     m_nErrCode           = 0;
     m_uRecvHeadPos       = 0;
     m_uRecvTailPos       = 0;
+    m_bDelayDestorying   = false;
+    m_bCallbackNotified  = false;
+
     xzero::KG_ZeroMemory(&m_saAddress, sizeof(sockaddr_in));
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     m_bRecvCompleted         = false;
-    m_bDelayDestorying       = false;
-    m_bCallbackNotified      = false;
     m_nRecvCompletedErrCode  = 0;
-    m_bRecvCompletedDataSize = 0;
+    m_nRecvCompletedDataSize = 0;
 #else                                                                   // linux   platform
 #endif // KG_PLATFORM_WINDOWS
 }
@@ -454,6 +455,29 @@ Exit0:
     return bResult;
 }
 
+bool KG_AsyncSocketStream::IsCallbackNotified() const
+{
+    return m_bCallbackNotified;
+}
+
+void KG_AsyncSocketStream::OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
+{
+    m_bCallbackNotified = true;
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    KG_UNREFERENCED_PARAMETER(lpOverlapped);
+    m_nRecvCompletedErrCode  = dwErrCode;
+    m_nRecvCompletedDataSize = dwBytesTransfered;
+    m_bRecvCompleted         = true;
+#else                                                                   // linux   platform
+#endif // KG_PLATFORM_WINDOWS
+}
+
+void KG_AsyncSocketStream::DoWaitCallbackNotified()
+{
+    m_bCallbackNotified = false;
+}
+
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 
 bool KG_AsyncSocketStream::IsRecvCompleted() const
@@ -464,25 +488,6 @@ bool KG_AsyncSocketStream::IsRecvCompleted() const
 bool KG_AsyncSocketStream::IsDelayDestorying() const
 {
     return m_bDelayDestorying;
-}
-
-bool KG_AsyncSocketStream::IsCallbackNotified() const
-{
-    return m_bCallbackNotified;
-}
-
-void KG_AsyncSocketStream::OnRecvCompleted(DWORD dwErrCode, DWORD dwBytesTransfered, LPOVERLAPPED lpOverlapped)
-{
-    KG_UNREFERENCED_PARAMETER(lpOverlapped);
-    m_nRecvCompletedErrCode  = dwErrCode;
-    m_bRecvCompletedDataSize = dwBytesTransfered;
-    m_bRecvCompleted         = true;
-    m_bCallbackNotified      = true;
-}
-
-void KG_AsyncSocketStream::DoWaitCallbackNotified()
-{
-    m_bCallbackNotified = false;
 }
 
 bool KG_AsyncSocketStream::_ActivateNextRecv()
@@ -500,7 +505,7 @@ bool KG_AsyncSocketStream::_ActivateNextRecv()
         xzero::KG_ZeroMemory(&m_wsaOverlapped, sizeof(m_wsaOverlapped));
 
         m_nRecvCompletedErrCode  = 0;
-        m_bRecvCompletedDataSize = 0;
+        m_nRecvCompletedDataSize = 0;
         m_bRecvCompleted         = false;
 
         dwBytesRecvd = 0;
@@ -617,7 +622,7 @@ int KG_AsyncSocketStream::Send(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
 
     while (uBufSize > 0)
     {
-        nRetCode = ::send(m_nSocket, pBuf, uBufSize, 0);
+        nRetCode = ::send(m_nSocket, pBuf, uBufSize, 0);                // non-block
         KG_PROCESS_ERROR_Q(0 != nRetCode);                              // disconnected == error
 
         if (nRetCode > 0)
@@ -670,11 +675,11 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
         KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,              0);  // timeout : there is no data reached.
         KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode, -1);  // error   : inner system error occurs.
-        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompletedDataSize > 0, -1);  // error
+        KG_PROCESS_ERROR_RET_CODE_Q(m_nRecvCompletedDataSize > 0, -1);  // error
 
-        m_uRecvTailPos += m_bRecvCompletedDataSize;                     // increase tail pos
+        m_uRecvTailPos += m_nRecvCompletedDataSize;                     // increase tail pos
         KG_PROCESS_ERROR_RET_CODE(m_uRecvTailPos <= uBufSize, -1);      // error
-        m_bRecvCompletedDataSize = 0;
+        m_nRecvCompletedDataSize = 0;
     #endif // KG_PLATFORM_WINDOWS
 
         // read complete package
@@ -696,11 +701,31 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
         }
 
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
-        nRetCode = _ActivateNextRecv();                                  // try to activate next recv
+        nRetCode = _ActivateNextRecv();                                 // try to activate next recv
         KG_PROCESS_ERROR_RET_CODE(nRetCode, -1);                        // error
         KG_PROCESS_ERROR_RET_CODE_Q(false,   0);                        // timeout
     #else                                                               // linux   platform
+        for (;;)
+        { // epoll : if KG_AsyncSocketStream::Recv() is invoked, there must be some data has reached.
+            nRetCode = ::recv(m_nSocket, pBuf + m_uRecvTailPos, uBufSize - m_uRecvTailPos, 0);
+            KG_PROCESS_ERROR_RET_CODE_Q(0 != nRetCode, -1);             // 0 indicates socket is closed
 
+            if (nRetCode > 0)
+            { // success : read some data and return to outer loop to detect complete package
+                m_uRecvTailPos += nRetCode;
+                break;
+            }
+
+            nRetCode = KG_IsSocketInterrupted();
+            if (nRetCode)
+            {                                                           // interrupted
+                continue;
+            }
+
+            nRetCode = KG_IsSocketEWouldBlock();
+            KG_PROCESS_SUCCESS_RET_CODE(nRetCode, 0);                   // timeout
+            KG_PROCESS_SUCCESS_RET_CODE(true,    -1);                   // error
+        }
     #endif // KG_PLATFORM_WINDOWS
     }
 
