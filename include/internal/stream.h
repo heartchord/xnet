@@ -35,6 +35,13 @@ public:
 typedef IKG_SocketStream *                PIKG_SocketStream;
 typedef std::shared_ptr<IKG_SocketStream> SPIKG_SocketStream;
 
+struct KG_SocketStreamListNode
+{
+    xzero::KG_ListNode m_ListNode;                                      // member for xzero::KG_List
+    SPIKG_SocketStream m_spSocketStream;                                // sp to socket stream
+};
+typedef KG_SocketStreamListNode *PKG_SocketStreamListNode;
+
 /*--------------------------------------------------------------------------------------------------*/
 /* KG_SocketStream : A socket stream without any data cache.                                        */
 /* When receiving data(KG_SocketStream::Recv), several situations need to be considered:            */
@@ -140,7 +147,6 @@ protected:
     xbuff::SPIKG_Buffer m_spRecvBuffer;                                 // recv buffer
     UINT32              m_uRecvHeadPos;                                 // recv head pos in buffer
     UINT32              m_uRecvTailPos;                                 // recv tail pos in buffer
-    xzero::KG_ListNode  m_ListNode;                                     // member for xzero::KG_List
 
     bool                m_bDelayDestorying;                             // delay destorying socket stream
     bool                m_bCallbackNotified;                            // 'IOCompletionCallBack' or 'EPOLL' callback notified?
@@ -171,7 +177,7 @@ private:
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 #else                                                                   // linux   platform
-    int      m_nEpollHandle;                                            // windows不使用，linux使用
+    int                 m_nEpollHandle;                                 // windows不使用，linux使用
 #endif // KG_PLATFORM_WINDOWS
 
 public:
@@ -179,17 +185,24 @@ public:
     ~KG_AsyncSocketStreamList();
 
 public:
-    void Insert(SPIKG_SocketStream spStream);
-    void Remove(SPIKG_SocketStream spStream);
+    void Insert(SPIKG_SocketStream &spStream);
+    void Remove(SPIKG_SocketStream &spStream);
     void Destroy();
 
     bool Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
 
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+#else                                                                   // linux   platform
+    void SetEpollHandle(int nEpollHandle);
+#endif // KG_PLATFORM_WINDOWS
+
 private:
     void _ProcessDestroy();
-#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
     bool _ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 #else                                                                   // linux   platform
+    bool _ProcessEpollEvents(UINT32 uMaxCount, UINT32 uCurCount);
 #endif // KG_PLATFORM_WINDOWS
 };
 

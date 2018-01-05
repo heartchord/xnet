@@ -793,36 +793,58 @@ void KG_AsyncSocketStream::GetAddress(struct in_addr *pIp, USHORT *pnPort) const
 
 KG_AsyncSocketStreamList::KG_AsyncSocketStreamList()
 {
+    m_pLastProcessedNode = NULL;
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+#else                                                                   // linux   platform
+    m_nEpollHandle       = -1;
+#endif // KG_PLATFORM_WINDOWS
 }
 
 KG_AsyncSocketStreamList::~KG_AsyncSocketStreamList()
 {
+    KG_ASSERT(m_StreamList.Empty() && "[ERROR] Forgot releasing m_StreamList?");
 }
 
-void KG_AsyncSocketStreamList::Insert(SPIKG_SocketStream spStream)
+void KG_AsyncSocketStreamList::Insert(SPIKG_SocketStream &spStream)
 {
-    if (!spStream)
-    {
-        return;
-    }
+    PKG_SocketStreamListNode pListNode = NULL;
 
-    m_StreamList.push_back(spStream);
+    KG_PROCESS_ERROR_Q(spStream);
+
+    pListNode = ::new KG_SocketStreamListNode;
+    KG_PROCESS_PTR_ERROR(pListNode);
+
+    pListNode->m_spSocketStream = spStream;
+    m_StreamList.PushBack(&pListNode->m_ListNode);
+
+Exit0:
 }
 
-void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream spStream)
+void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream &spStream)
 {
-    if (!spStream)
+    xzero::PKG_ListNode      pNode     = NULL;
+    PKG_SocketStreamListNode pListNode = NULL;
+    
+    KG_PROCESS_ERROR_Q(spStream);
+
+    pNode = m_StreamList.Front();
+
+    while (pNode)
     {
-        return;
+        pListNode = KG_FetchAddressByField(pNode, KG_SocketStreamListNode, m_ListNode);
+
+        if (pListNode->m_spSocketStream == spStream)
+        {
+            pNode->Remove();
+            xzero::KG_DeletePtrSafely(pListNode);
+            break;
+        }
+
+        pNode = pNode->Next();
     }
 
-    auto it = std::find(m_StreamList.begin(), m_StreamList.end(), spStream);
-    if (m_StreamList.end() == it)
-    {
-        return;
-    }
-
-    m_StreamList.erase(it);
+Exit0:
 }
 
 void KG_AsyncSocketStreamList::Destroy()
@@ -833,10 +855,39 @@ void KG_AsyncSocketStreamList::Destroy()
 #endif // KG_PLATFORM_WINDOWS
 }
 
-bool KG_AsyncSocketStreamList::Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
+bool KG_AsyncSocketStreamList::Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent *pEventList)
 {
-    return true;
+    bool bResult  = false;
+    int  nRetCode = 0;
+
+    KG_PROCESS_ERROR(uMaxCount > 0);
+    KG_PROCESS_ERROR(uCurCount <= uMaxCount);
+    KG_PROCESS_PTR_ERROR(pEventList);
+
+    KG_PROCESS_SUCCESS(uCurCount == uMaxCount);
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+#else                                                                   // linux   platform
+    nRetCode = _ProcessEpollEvents(uMaxCount, uCurCount);
+    KG_PROCESS_ERROR(nRetCode);
+#endif // KG_PLATFORM_WINDOWS
+
+    nRetCode = _ProcessRecvOrClose(uMaxCount, uCurCount, pEventList);
+    KG_PROCESS_ERROR(nRetCode);
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
 }
+
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+#else                                                                   // linux   platform
+void KG_AsyncSocketStreamList::SetEpollHandle(int nEpollHandle)
+{
+    m_nEpollHandle = nEpollHandle;
+}
+#endif // KG_PLATFORM_WINDOWS
 
 void KG_AsyncSocketStreamList::_ProcessDestroy()
 {
@@ -886,68 +937,188 @@ void KG_AsyncSocketStreamList::_ProcessDestroy()
     }
 }
 
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+
 bool KG_AsyncSocketStreamList::_ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
 {
-    bool                  bResult     = false;
-    int                   nRetCode    = 0;
-    size_t                uListSize   = 0;
-    size_t                uEventCount = 0;
-    PKG_AsyncSocketStream pStream     = NULL;
+    bool                     bResult     = false;
+    int                      nRetCode    = 0;
+    UINT32                   uListSize   = 0;
+    UINT32                   uEventCount = 0;
+    PKG_SocketStreamListNode pListNode   = NULL;
+    PKG_AsyncSocketStream    pStream     = NULL;
 
     KG_PROCESS_PTR_ERROR(pEventList);
     KG_PROCESS_ERROR(uMaxCount > 0 && uCurCount <= uMaxCount);
     KG_PROCESS_SUCCESS(uCurCount == uMaxCount);
 
-    uListSize   = m_StreamList.size();
+    uListSize   = m_StreamList.Size();
     uEventCount = uListSize;
 
-    //while (uEventCount--)
-    //{
-    //    pCurrent = (PKG_SocketStreamNode)m_pLastWaitingNode;
-    //    m_pLastWaitingNode = m_pLastWaitingNode->GetNext();
+    while (uEventCount--)
+    {
+        if (NULL == m_pLastProcessedNode)
+        {
+            m_pLastProcessedNode = m_StreamList.Front();
+        }
 
-    //    KG_ASSERT(pCurrent->m_spSocketStream);
-    //    pStream = static_cast<PKG_AsyncSocketStream>(pCurrent->m_spSocketStream.Get());
+        pListNode            = KG_FetchAddressByField(m_pLastProcessedNode, KG_SocketStreamListNode, m_ListNode);
+        m_pLastProcessedNode = m_pLastProcessedNode->Next();
 
-    //    nRetCode = pStream->IsIOCPRecvCompleted();
-    //    if (!nRetCode)
-    //    { // if iocp not recv completed, then continue.
-    //        continue;
-    //    }
+        KG_PROCESS_ERROR(pListNode->m_spSocketStream);
+        pStream = static_cast<PKG_AsyncSocketStream>(pListNode->m_spSocketStream.get());
 
-    //    nRetCode = pStream->IsStreamNeedToClose();
-    //    if (nRetCode)
-    //    { // if stream should be closed, close then continue.
-    //        pCurrent->Remove();                                         // 从链表中移除
-    //        nRetCode = pCurrent->m_spSocketStream->Close();             // 关闭套接字流
-    //        KG_ASSERT(nRetCode);
-    //        KG_SafelyDeletePtr(pCurrent);                               // 释放节点
-    //        continue;
-    //    }
+        nRetCode = pStream->IsRecvCompleted();
+        if (!nRetCode)
+        { // if iocp not recv completed, then continue.
+            continue;
+        }
 
-    //    nRetCode = pStream->IsIOCPWaitNotified();
-    //    if (!nRetCode)
-    //    { // if iocp not recv completed, then continue.
-    //        continue;
-    //    }
+        nRetCode = pStream->IsDelayDestorying();
+        if (nRetCode)
+        { // if stream should be closed, close then continue.
+            pListNode->m_ListNode.Remove();
+            pListNode->m_spSocketStream->Close();
+            xzero::KG_DeletePtrSafely(pListNode);
+            continue;
+        }
 
-    //    if (uCurEventCount >= uMaxEventCount)                           // if reach max event count, then continue
-    //    { // 不进行break的原因是尽量能处理能关闭的套接字流
-    //        continue;
-    //    }
+        nRetCode = pStream->IsCallbackNotified();
+        if (!nRetCode)
+        { // if iocp not recv completed, then continue.
+            continue;
+        }
 
-    //    pStream->OnWaitingNotified();
+        if (uCurCount >= uMaxCount)
+        { // if reach max event count, then continue. try to close socket as far as possible.
+            continue;
+        }
 
-    //    pSocketEventArray[uCurEventCount].m_uSocketEventType = KG_SOCKET_EVENT_READ;
-    //    pSocketEventArray[uCurEventCount].m_spSocketStream = pCurrent->m_spSocketStream;
-    //    uCurEventCount++;
-    //    pStream = NULL;
-    //}
+        pStream->DoWaitCallbackNotified();
+
+        pEventList[uCurCount].m_uType    = KG_SOCKET_EVENT_READ;
+        pEventList[uCurCount].m_spStream = pListNode->m_spSocketStream;
+
+        uCurCount++;
+        pStream = NULL;
+    }
 
 Exit1:
     bResult = true;
 Exit0:
     return bResult;
 }
+
+#else                                                                   // linux   platform
+
+bool KG_AsyncSocketStreamList::_ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
+{
+    bool                     bResult     = false;
+    int                      nRetCode    = 0;
+    UINT32                   uListSize   = 0;
+    UINT32                   uEventCount = 0;
+    PKG_SocketStreamListNode pListNode   = NULL;
+    PKG_AsyncSocketStream    pStream     = NULL;
+
+    KG_PROCESS_ERROR(-1 != m_nEpollHandle);
+    KG_PROCESS_PTR_ERROR(pEventList);
+    KG_PROCESS_ERROR(uMaxCount > 0 && uCurCount <= uMaxCount);
+    KG_PROCESS_SUCCESS(uCurCount == uMaxCount);
+
+    uListSize   = m_StreamList.Size();
+    uEventCount = uListSize;
+
+    while (uEventCount--)
+    {
+        if (NULL == m_pLastProcessedNode)
+        {
+            m_pLastProcessedNode = m_StreamList.Front();
+        }
+
+        pListNode            = KG_FetchAddressByField(m_pLastProcessedNode, KG_SocketStreamListNode, m_ListNode);
+        m_pLastProcessedNode = m_pLastProcessedNode->Next();
+
+        KG_PROCESS_ERROR(pListNode->m_spSocketStream);
+        pStream = static_cast<PKG_AsyncSocketStream>(pListNode->m_spSocketStream.get());
+
+        nRetCode = pStream->IsDelayDestorying();
+        if (nRetCode)
+        { // if stream should be closed, close then continue.
+            pListNode->m_ListNode.Remove();
+            pListNode->m_spSocketStream->Close();
+            xzero::KG_DeletePtrSafely(pListNode);
+            continue;
+        }
+
+        nRetCode = pStream->IsCallbackNotified();
+        if (!nRetCode)
+        { // if epoll not recv completed, then continue.
+            continue;
+        }
+
+        if (uCurCount >= uMaxCount)
+        { // if reach max event count, then continue. try to close socket as far as possible.
+            continue;
+        }
+
+        pStream->DoWaitCallbackNotified();
+
+        pEventList[uCurCount].m_uType    = KG_SOCKET_EVENT_READ;
+        pEventList[uCurCount].m_spStream = pListNode->m_spSocketStream;
+
+        uCurCount++;
+        pStream = NULL;
+    }
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
+}
+typedef std::vector<struct epoll_event> KG_EpollEventVector;
+
+bool KG_AsyncSocketStreamList::_ProcessEpollEvents(UINT32 uMaxCount, UINT32 uCurCount)
+{
+    bool                  bResult     = false;
+    int                   nRetCode    = 0;
+    int                   nWaitCount  = 0;
+    int                   nEventCount = 0;
+    struct epoll_event *  pEpollEvent = NULL;
+    PKG_AsyncSocketStream pStream     = NULL;
+    KG_EpollEventVector   events;
+
+    KG_PROCESS_ERROR(-1 != m_nEpollHandle);
+    KG_PROCESS_ERROR(uMaxCount > 0);
+    KG_PROCESS_ERROR(uCurCount <= uMaxCount);
+
+    KG_PROCESS_SUCCESS(uCurCount == uMaxCount);
+
+    nEventCount = uMaxCount - uCurCount;
+    events.resize(nEventCount);
+
+    pEpollEvent = &events[0];
+    nWaitCount  = ::epoll_wait(m_nEpollHandle, pEpollEvent, nEventCount, 0);
+    KG_PROCESS_ERROR(nWaitCount >= 0);
+
+    while (nWaitCount--)
+    {
+        pStream = (PKG_AsyncSocketStream)(pEpollEvent->data.ptr);
+        KG_PROCESS_PTR_ERROR(pAsyncSocketStream);
+
+        // 这里仿照windows平台的流程，只设置事件flag值，不进行具体事务操作
+        nRetCode = pAsyncSocketStream->OnEpollWaitReady();
+        KG_PROCESS_ERROR(nRetCode);
+
+        ++pEpollEvent;
+        ++uCurEventCount;
+    }
+
+Exit1:
+    nResult = true;
+Exit0:
+    return nResult;
+}
+
+#endif // KG_PLATFORM_WINDOWS
 
 KG_NAMESPACE_END
