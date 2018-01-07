@@ -401,4 +401,210 @@ Exit0:
     return nResult;
 }
 
+KG_EventModelServerProxy::KG_EventModelServerProxy()
+{
+}
+
+KG_EventModelServerProxy::~KG_EventModelServerProxy()
+{
+    KG_ASSERT(!m_spSocketAcceptor && "[ERROR] Forgot invoking KG_EventModelServerProxy::Close()?");
+}
+
+bool KG_EventModelServerProxy::Init(const char * const cszIpAddr, const USHORT uPort)
+{
+    bool                    bResult             = false;
+    int                     nRetCode            = false;
+    PKG_SocketEvent         pEventList          = NULL;
+    bool                    bEventListInit      = false;
+    PKG_AsyncSocketAcceptor pSocketAcceptor     = NULL;
+    bool                    bSocketAcceptorInit = false;
+
+    KG_PROCESS_ERROR(uPort > 0);
+    KG_PROCESS_ERROR(!m_spSocketAcceptor);
+
+    // start net service
+    // start net service
+    nRetCode = KG_SINGLETON_REF(KG_NetService).Open();
+    KG_PROCESS_ERROR(nRetCode);
+
+    // init socket event array
+    pEventList = ::new KG_SocketEvent[KG_MAX_SOCKET_EVENT];
+    KG_PROCESS_PTR_ERROR(pEventList);
+    bEventListInit = true;
+
+    // init socket server acceptor
+    pSocketAcceptor = ::new KG_AsyncSocketAcceptor;
+    KG_PROCESS_PTR_ERROR(pSocketAcceptor);
+
+    nRetCode = pSocketAcceptor->Init(cszIpAddr, uPort, KG_MAX_SOCKET_ACCEPT_EVENT, 1024 * 4, 1024 * 16);
+    KG_PROCESS_ERROR(nRetCode);
+    bSocketAcceptorInit = true;
+
+    // success here
+    m_spEventList = SPKG_SocketEvent(pEventList, [](KG_SocketEvent *p) {delete[]p; });
+    pEventList    = NULL;                                               // transfer owners
+
+    m_spSocketAcceptor = SPKG_AsyncSocketAcceptor(pSocketAcceptor);
+    pSocketAcceptor    = NULL;                                          // transfer owners
+
+    bResult = true;
+Exit0:
+    if (!bResult)
+    {
+        if (bSocketAcceptorInit)
+        {
+            nRetCode = pSocketAcceptor->Close();
+            KG_ASSERT(nRetCode);
+        }
+
+        xzero::KG_DeletePtrSafely(pSocketAcceptor);
+        bSocketAcceptorInit = false;
+
+        if (bSocketAcceptorInit)
+        {
+        }
+        xzero::KG_DeleteArrayPtrSafely(pEventList);
+        bEventListInit = false;
+    }
+
+    return bResult;
+}
+
+bool KG_EventModelServerProxy::Close()
+{
+    int nRetCode = 0;
+
+    KG_ASSERT(m_spEventList);
+    KG_ASSERT(m_spSocketAcceptor);
+
+    if (m_spSocketAcceptor)
+    {
+        nRetCode = m_spSocketAcceptor->Close();
+        KG_ASSERT(nRetCode);
+        m_spSocketAcceptor.reset();
+    }
+
+    if (m_spEventList)
+    {
+        m_spEventList.reset();
+    }
+
+    return true;
+}
+
+bool KG_EventModelServerProxy::Activate()
+{
+    ProcessNetEvent();
+    return true;
+}
+
+bool KG_EventModelServerProxy::ProcessNetEvent()
+{
+    bool   bResult   = false;
+    int    nRetCode  = false;
+    UINT32 uCurCount = 0;
+    UINT32 uType     = KG_SOCKET_EVENT_INIT;
+    SPIKG_SocketStream spSocketStream;
+
+    for (;;)
+    {
+        uCurCount = 0;
+
+        nRetCode = m_spSocketAcceptor->Activate(KG_MAX_SOCKET_EVENT, uCurCount, m_spEventList.get());
+        KG_PROCESS_ERROR(nRetCode);
+        KG_PROCESS_SUCCESS(0 == uCurCount);
+
+        for (UINT32 i = 0; i < uCurCount; i++)
+        {
+            spSocketStream = m_spEventList.get()[i].m_spStream;
+            uType          = m_spEventList.get()[i].m_uType;
+
+            if (!spSocketStream)
+            {
+                KG_ASSERT(false);
+                continue;
+            }
+
+            if (KG_SOCKET_EVENT_ACCEPT & uType)
+            {
+                nRetCode = _OnClientConnected(spSocketStream);
+                if (!nRetCode)
+                {
+                    CloseConnection(spSocketStream);
+                    m_spEventList.get()[i].Reset();
+                }
+                continue;
+            }
+
+            if (!(KG_SOCKET_EVENT_READ & uType))
+            {
+                xzero::KG_DebugPrintln("[Error] unexpected socket event : %u", uType);
+                CloseConnection(spSocketStream);
+                m_spEventList.get()[i].Reset();
+                continue;
+            }
+
+            nRetCode = ProcessOnePackage(spSocketStream);
+            if (!nRetCode)
+            {
+                CloseConnection(spSocketStream);
+                m_spEventList.get()[i].Reset();
+            }
+        }
+    }
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
+}
+
+bool KG_EventModelServerProxy::ProcessOnePackage(SPIKG_SocketStream &spStream)
+{
+    bool                bResult  = false;
+    int                 nRetCode = 0;
+    static int          nPackageSerial = 0;
+    timeval             tv = { 0, 0 };
+    xbuff::SPIKG_Buffer spBuff;
+
+    KG_PROCESS_ERROR(spStream);
+
+    for (;;)
+    {
+        nRetCode = spStream->Recv(spBuff, 4, &tv);
+        KG_PROCESS_ERROR_Q(nRetCode >= 0);                              // error
+        KG_PROCESS_SUCCESS(nRetCode == 0);                              // time out
+
+        xzero::KG_DebugPrintln("[MSG] KG_SingleClientServerProxy - Package Serial = %d", nPackageSerial++);
+
+        nRetCode = _OnClientDataRecvd(spStream, spBuff);
+        KG_PROCESS_ERROR(nRetCode);                                     // error
+    }
+
+Exit1:
+    bResult = true;
+Exit0:
+    return bResult;
+}
+
+void KG_EventModelServerProxy::CloseConnection(SPIKG_SocketStream &spStream)
+{
+    bool bResult = false;
+    int  nRetCode = false;
+
+    KG_PROCESS_SUCCESS(!spStream);
+
+    nRetCode = _OnClientClosed(spStream);
+    KG_PROCESS_ERROR(nRetCode);
+
+    nRetCode = spStream->Close();
+    KG_PROCESS_ERROR(nRetCode);
+    spStream.reset();
+
+Exit1:
+    bResult = true;
+Exit0:
+    return;
+}
+
 KG_NAMESPACE_END

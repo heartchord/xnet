@@ -69,4 +69,25 @@ private:
     int  ProcessOnePackage(SPIKG_SocketStream &spStream);
 };
 
+class KG_EventModelServerProxy : public IKG_ServerProxy
+{
+protected:
+    SPKG_SocketEvent         m_spEventList;
+    SPKG_AsyncSocketAcceptor m_spSocketAcceptor;                   // Socket Server Acceptor
+
+public:
+    KG_EventModelServerProxy();
+    virtual ~KG_EventModelServerProxy();
+
+public:
+    bool Init(const char * const cszIpAddr, const USHORT uPort);
+    virtual bool Close();
+    virtual bool Activate();
+
+private:
+    bool ProcessNetEvent();
+    void CloseConnection(SPIKG_SocketStream &spStream);
+    bool ProcessOnePackage(SPIKG_SocketStream &spStream);
+};
+
 KG_NAMESPACE_END

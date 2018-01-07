@@ -24,7 +24,7 @@ SOCKET KG_CreateUdpSocket()
     return KG_INVALID_SOCKET;
 }
 
-SOCKET KG_CreateListenSocket(const char * const cszIpAddr, const WORD nPort, const int nBackLog)
+SOCKET KG_CreateListenSocket(const char *pszIpAddr, WORD nPort, int nBackLog)
 {
     int         nResult       = false;
     int         nRetCode      = 0;
@@ -41,9 +41,9 @@ SOCKET KG_CreateListenSocket(const char * const cszIpAddr, const WORD nPort, con
     KG_PROCESS_SOCKET_ERROR(hListenSocket);
 
     // fill in sockaddr_in
-    if (NULL != cszIpAddr && '\0' != cszIpAddr[0])
+    if (NULL != pszIpAddr && '\0' != pszIpAddr[0])
     {
-        if (INADDR_NONE == (ulAddress = ::inet_addr(cszIpAddr)))
+        if (INADDR_NONE == (ulAddress = ::inet_addr(pszIpAddr)))
         {
             ulAddress = INADDR_ANY;
         }
@@ -275,14 +275,14 @@ Exit0:
     return nResult;
 }
 
-int KG_CheckSendSocketData(SOCKET nSocket, const char * const cpcBuff, const UINT32 uBuffSize, const UINT32 uSendBytes, const timeval *pcTimeout)
+int KG_CheckSendSocketData(SOCKET nSocket, const char *pcBuff, UINT32 uBuffSize, UINT32 uSendBytes, const timeval *pcTimeout)
 {
     int          nResult    = -1;
     int          nRetCode   = 0;
     UINT32       uLeftBytes = uSendBytes;
-    const char * pcCurrent  = cpcBuff;
+    const char * pcCurrent  = pcBuff;
 
-    KG_PROCESS_PTR_ERROR(cpcBuff);
+    KG_PROCESS_PTR_ERROR(pcBuff);
     KG_PROCESS_SOCKET_ERROR(nSocket);
     KG_PROCESS_ERROR(uBuffSize > 0 && uSendBytes > 0 && uSendBytes <= uBuffSize);
 
@@ -320,7 +320,7 @@ Exit0:
     return nResult;
 }
 
-int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, const UINT32 uBuffSize, UINT32 * const puRecvBytes, const timeval *pcTimeout)
+int KG_CheckRecvSocketData(SOCKET nSocket, char * const cpBuff, UINT32 uBuffSize, UINT32 * const puRecvBytes, const timeval *pcTimeout)
 {
     int    nResult    = -1;
     int    nRetCode   = 0;
@@ -516,7 +516,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_SetSocketRecvBuff(SOCKET nSocket, const UINT32 uRecvBuffSize)
+bool KG_SetSocketRecvBuff(SOCKET nSocket, UINT32 uRecvBuffSize)
 {
     bool bResult  = false;
     int  nRetCode = 0;
@@ -538,7 +538,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_SetSocketSendBuff(SOCKET nSocket, const UINT32 uSendBuffSize)
+bool KG_SetSocketSendBuff(SOCKET nSocket, UINT32 uSendBuffSize)
 {
     bool bResult  = false;
     int  nRetCode = 0;

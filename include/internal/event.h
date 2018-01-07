@@ -41,6 +41,12 @@
 
 KG_NAMESPACE_BEGIN(xnet)
 
+#undef  KG_MAX_SOCKET_ACCEPT_EVENT
+#define KG_MAX_SOCKET_ACCEPT_EVENT 32
+
+#undef  KG_MAX_SOCKET_EVENT
+#define KG_MAX_SOCKET_EVENT        (1024 + KG_MAX_SOCKET_ACCEPT_EVENT)
+
 class KG_SocketEvent : private xzero::KG_UnCopyable
 {
 public:
@@ -50,6 +56,9 @@ public:
 public:
     KG_SocketEvent();
     ~KG_SocketEvent();
+
+public:
+    void Reset();
 };
 
 typedef KG_SocketEvent *                PKG_SocketEvent;

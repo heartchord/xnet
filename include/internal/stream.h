@@ -189,7 +189,7 @@ public:
     void Remove(SPIKG_SocketStream &spStream);
     void Destroy();
 
-    bool Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
+    bool Activate(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent *pEventList);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 #else                                                                   // linux   platform
@@ -197,13 +197,16 @@ public:
 #endif // KG_PLATFORM_WINDOWS
 
 private:
-    void _ProcessDestroy();
-    bool _ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList);
+    bool _ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent *pEventList);
 
 #ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+    void _ProcessDestroy();
 #else                                                                   // linux   platform
     bool _ProcessEpollEvents(UINT32 uMaxCount, UINT32 uCurCount);
 #endif // KG_PLATFORM_WINDOWS
 };
+
+typedef KG_AsyncSocketStream *PKG_AsyncSocketStream;
+PKG_AsyncSocketStream g_CreateAsyncSocketStream(SOCKET nSocket, sockaddr_in &addr, UINT32 uRecvBuffSize = 0, UINT32 uSendBuffSize = 0);
 
 KG_NAMESPACE_END

@@ -65,10 +65,10 @@ UINT32 KG_DecapsulatePakHead(char * const cpBuff, const UINT32 uPakHeadSize)
     KG_PROCESS_PTR_ERROR(cpBuff);
     KG_PROCESS_ERROR(uPakHeadSize > 0 && uPakHeadSize <= KG_MAX_PAK_HEAD_SIZE);
 
-    for (UINT32 i = uPakHeadSize - 1; i > 0; i--)
+    for (UINT32 i = uPakHeadSize; i > 0; i--)
     {
         n <<= 8;
-        n += cpBuff[i];
+        n += cpBuff[i-1];
     }
 
 Exit0:
@@ -673,9 +673,9 @@ int KG_AsyncSocketStream::Recv(xbuff::SPIKG_Buffer &spBuffer, const UINT32 uPakH
     for (;;)
     {
     #ifdef KG_PLATFORM_WINDOWS                                          // windows platform
-        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,              0);  // timeout : there is no data reached.
-        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode, -1);  // error   : inner system error occurs.
-        KG_PROCESS_ERROR_RET_CODE_Q(m_nRecvCompletedDataSize > 0, -1);  // error
+        KG_PROCESS_ERROR_RET_CODE_Q(m_bRecvCompleted,               0); // timeout : there is no data reached.
+        KG_PROCESS_ERROR_RET_CODE_Q(0 == m_nRecvCompletedErrCode,  -1); // error   : inner system error occurs.
+        KG_PROCESS_ERROR_RET_CODE_Q(m_nRecvCompletedDataSize >= 0, -1); // error
 
         m_uRecvTailPos += m_nRecvCompletedDataSize;                     // increase tail pos
         KG_PROCESS_ERROR_RET_CODE(m_uRecvTailPos <= uBufSize, -1);      // error
@@ -819,13 +819,14 @@ void KG_AsyncSocketStreamList::Insert(SPIKG_SocketStream &spStream)
     m_StreamList.PushBack(&pListNode->m_ListNode);
 
 Exit0:
+    return;
 }
 
 void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream &spStream)
 {
     xzero::PKG_ListNode      pNode     = NULL;
     PKG_SocketStreamListNode pListNode = NULL;
-    
+
     KG_PROCESS_ERROR_Q(spStream);
 
     pNode = m_StreamList.Front();
@@ -845,6 +846,7 @@ void KG_AsyncSocketStreamList::Remove(SPIKG_SocketStream &spStream)
     }
 
 Exit0:
+    return;
 }
 
 void KG_AsyncSocketStreamList::Destroy()
@@ -889,21 +891,31 @@ void KG_AsyncSocketStreamList::SetEpollHandle(int nEpollHandle)
 }
 #endif // KG_PLATFORM_WINDOWS
 
+#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
+
 void KG_AsyncSocketStreamList::_ProcessDestroy()
 {
-    int                   nRetCode = 0;
-    PKG_AsyncSocketStream pStream  = NULL;
+    int                      nRetCode  = 0;
+    xzero::PKG_ListNode      pNode     = NULL;
+    xzero::PKG_ListNode      pTemp     = NULL;
+    PKG_AsyncSocketStream    pStream   = NULL;
+    PKG_SocketStreamListNode pListNode = NULL;
 
     for (;;)
     {
-        for (auto it = m_StreamList.begin(); it != m_StreamList.end();)
+        pNode = m_StreamList.Front();
+        while (pNode)
         {
-            pStream = static_cast<PKG_AsyncSocketStream>(it->get());
+            pTemp = pNode;
+            pNode = pNode->Next();
+
+            pListNode = KG_FetchAddressByField(pTemp, KG_SocketStreamListNode, m_ListNode);
+            pStream   = static_cast<PKG_AsyncSocketStream>(pListNode->m_spSocketStream.get());
 
             if (!pStream)
             { // pStream is NULL
                 KG_ASSERT(false);
-                m_StreamList.erase(it++);
+                pTemp->Remove();
                 continue;
             }
 
@@ -914,21 +926,20 @@ void KG_AsyncSocketStreamList::_ProcessDestroy()
 
                 nRetCode = pStream->Close();
                 KG_ASSERT(nRetCode);
-                it++;
                 continue;
             }
 
             if (!pStream->IsRecvCompleted())
             {
                 xzero::KG_DebugPrintln("[INFO] AsyncSocketStream(%p) is waiting 'IOCompletionCallBack' callback.", pStream);
-                it++;
                 continue;
             }
 
-            m_StreamList.erase(it++);
+            pTemp->Remove();
+            xzero::KG_DeletePtrSafely(pTemp);
         }
 
-        if (m_StreamList.empty())
+        if (m_StreamList.Empty())
         {
             break;
         }
@@ -936,8 +947,6 @@ void KG_AsyncSocketStreamList::_ProcessDestroy()
         xzero::KG_MilliSleep(50);
     }
 }
-
-#ifdef KG_PLATFORM_WINDOWS                                              // windows platform
 
 bool KG_AsyncSocketStreamList::_ProcessRecvOrClose(UINT32 uMaxCount, UINT32 &uCurCount, KG_SocketEvent * pEventList)
 {
@@ -1120,5 +1129,32 @@ Exit0:
 }
 
 #endif // KG_PLATFORM_WINDOWS
+PKG_AsyncSocketStream g_CreateAsyncSocketStream(SOCKET nSocket, sockaddr_in &addr, UINT32 uRecvBuffSize, UINT32 uSendBuffSize)
+{
+    bool                  bResult  = false;
+    int                   nRetCode = false;
+    PKG_AsyncSocketStream pStream  = NULL;
+
+    pStream = ::new KG_AsyncSocketStream;
+    KG_PROCESS_PTR_ERROR(pStream);
+
+    nRetCode = pStream->Init(nSocket, addr, uRecvBuffSize, uSendBuffSize);
+    KG_PROCESS_ERROR(nRetCode);
+
+    bResult = true;
+Exit0:
+    if (!bResult)
+    {
+        if (pStream)
+        {
+            nRetCode = pStream->Close();
+            KG_ASSERT(nRetCode);
+        }
+
+        xzero::KG_DeletePtrSafely(pStream);
+    }
+
+    return pStream;
+}
 
 KG_NAMESPACE_END
