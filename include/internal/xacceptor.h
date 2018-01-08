@@ -1,6 +1,6 @@
 #pragma once
 
-#include "event.h"
+#include "xevent.h"
 
 KG_NAMESPACE_BEGIN(xnet)
 

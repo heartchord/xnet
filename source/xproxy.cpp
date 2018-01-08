@@ -1,4 +1,4 @@
-#include "proxy.h"
+#include "xproxy.h"
 
 KG_NAMESPACE_BEGIN(xnet)
 

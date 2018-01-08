@@ -1,5 +1,5 @@
-#include "acceptor.h"
-#include "wrapper.h"
+#include "xacceptor.h"
+#include "xwrapper.h"
 
 KG_NAMESPACE_BEGIN(xnet)
 

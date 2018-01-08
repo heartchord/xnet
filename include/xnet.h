@@ -1,7 +1,7 @@
 #pragma once
 
-#include "internal/public.h"
-#include "internal/wrapper.h"
-#include "internal/acceptor.h"
-#include "internal/stream.h"
-#include "internal/proxy.h"
+#include "internal/xpublic.h"
+#include "internal/xwrapper.h"
+#include "internal/xacceptor.h"
+#include "internal/xstream.h"
+#include "internal/xproxy.h"

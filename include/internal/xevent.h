@@ -1,7 +1,7 @@
 #pragma once
 
-#include "public.h"
-#include "stream.h"
+#include "xpublic.h"
+#include "xstream.h"
 
 #undef KG_SOCKET_EVENT_INIT
 #undef KG_SOCKET_EVENT_READ

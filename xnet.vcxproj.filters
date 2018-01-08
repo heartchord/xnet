@@ -17,22 +17,22 @@
     <ClInclude Include="include\xnet.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\public.h">
+    <ClInclude Include="include\internal\xacceptor.h">
       <Filter>include\internal</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\stream.h">
+    <ClInclude Include="include\internal\xevent.h">
       <Filter>include\internal</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\wrapper.h">
+    <ClInclude Include="include\internal\xproxy.h">
       <Filter>include\internal</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\acceptor.h">
+    <ClInclude Include="include\internal\xpublic.h">
       <Filter>include\internal</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\proxy.h">
+    <ClInclude Include="include\internal\xstream.h">
       <Filter>include\internal</Filter>
     </ClInclude>
-    <ClInclude Include="include\internal\event.h">
+    <ClInclude Include="include\internal\xwrapper.h">
       <Filter>include\internal</Filter>
     </ClInclude>
   </ItemGroup>
@@ -40,19 +40,19 @@
     <ClCompile Include="source\xnet.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="source\stream.cpp">
+    <ClCompile Include="source\xacceptor.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="source\wrapper.cpp">
+    <ClCompile Include="source\xevent.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="source\acceptor.cpp">
+    <ClCompile Include="source\xproxy.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="source\proxy.cpp">
+    <ClCompile Include="source\xstream.cpp">
       <Filter>source</Filter>
     </ClCompile>
-    <ClCompile Include="source\event.cpp">
+    <ClCompile Include="source\xwrapper.cpp">
       <Filter>source</Filter>
     </ClCompile>
   </ItemGroup>

@@ -19,21 +19,21 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\internal\acceptor.h" />
-    <ClInclude Include="include\internal\event.h" />
-    <ClInclude Include="include\internal\proxy.h" />
-    <ClInclude Include="include\internal\public.h" />
-    <ClInclude Include="include\internal\stream.h" />
-    <ClInclude Include="include\internal\wrapper.h" />
+    <ClInclude Include="include\internal\xacceptor.h" />
+    <ClInclude Include="include\internal\xevent.h" />
+    <ClInclude Include="include\internal\xproxy.h" />
+    <ClInclude Include="include\internal\xpublic.h" />
+    <ClInclude Include="include\internal\xstream.h" />
+    <ClInclude Include="include\internal\xwrapper.h" />
     <ClInclude Include="include\xnet.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\acceptor.cpp" />
-    <ClCompile Include="source\event.cpp" />
-    <ClCompile Include="source\proxy.cpp" />
-    <ClCompile Include="source\stream.cpp" />
-    <ClCompile Include="source\wrapper.cpp" />
+    <ClCompile Include="source\xacceptor.cpp" />
+    <ClCompile Include="source\xevent.cpp" />
     <ClCompile Include="source\xnet.cpp" />
+    <ClCompile Include="source\xproxy.cpp" />
+    <ClCompile Include="source\xstream.cpp" />
+    <ClCompile Include="source\xwrapper.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
