@@ -2,7 +2,7 @@
 
 KG_NAMESPACE_BEGIN(xnet)
 
-bool IKG_ServerProxy::_OnClientClosed(SPIKG_SocketStream &spStream)
+bool IKG_ServerProxy::_OnClientClosed(SPIKG_SocketStream spStream)
 {
     bool           bResult  = false;
     int            nRetCode = false;
@@ -19,7 +19,7 @@ Exit0:
     return bResult;
 }
 
-bool IKG_ServerProxy::IKG_ServerProxy::_OnClientConnected(SPIKG_SocketStream &spStream)
+bool IKG_ServerProxy::IKG_ServerProxy::_OnClientConnected(SPIKG_SocketStream spStream)
 {
     bool           bResult  = false;
     int            nRetCode = false;
@@ -36,7 +36,7 @@ Exit0:
     return bResult;
 }
 
-bool IKG_ServerProxy::_OnClientDataRecvd(SPIKG_SocketStream &spStream, xbuff::SPIKG_Buffer &spBuff)
+bool IKG_ServerProxy::_OnClientDataRecvd(SPIKG_SocketStream spStream, xbuff::SPIKG_Buffer spBuff)
 {
     bool            bResult = false;
     int            nRetCode = false;
@@ -354,7 +354,7 @@ Exit0:
     return;
 }
 
-void KG_MultiClientServerProxy::CloseConnection(SPIKG_SocketStream &spStream)
+void KG_MultiClientServerProxy::CloseConnection(SPIKG_SocketStream spStream)
 {
     bool bResult  = false;
     int  nRetCode = false;
@@ -374,7 +374,7 @@ Exit0:
     return;
 }
 
-int KG_MultiClientServerProxy::ProcessOnePackage(SPIKG_SocketStream &spStream)
+int KG_MultiClientServerProxy::ProcessOnePackage(SPIKG_SocketStream spStream)
 {
     int                 nResult = -1;
     int                 nRetCode = 0;
@@ -441,7 +441,7 @@ bool KG_EventModelServerProxy::Init(const char * const cszIpAddr, const USHORT u
     bSocketAcceptorInit = true;
 
     // success here
-    m_spEventList = SPKG_SocketEvent(pEventList, [](KG_SocketEvent *p) {delete[]p; });
+    m_spEventList = SPKG_SocketEvent(pEventList, [](KG_SocketEvent *p) { delete[] p; });
     pEventList    = NULL;                                               // transfer owners
 
     m_spSocketAcceptor = SPKG_AsyncSocketAcceptor(pSocketAcceptor);
@@ -559,7 +559,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_EventModelServerProxy::ProcessOnePackage(SPIKG_SocketStream &spStream)
+bool KG_EventModelServerProxy::ProcessOnePackage(SPIKG_SocketStream spStream)
 {
     bool                bResult  = false;
     int                 nRetCode = 0;
@@ -587,7 +587,7 @@ Exit0:
     return bResult;
 }
 
-void KG_EventModelServerProxy::CloseConnection(SPIKG_SocketStream &spStream)
+void KG_EventModelServerProxy::CloseConnection(SPIKG_SocketStream spStream)
 {
     bool bResult = false;
     int  nRetCode = false;

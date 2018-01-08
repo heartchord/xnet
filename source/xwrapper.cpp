@@ -24,7 +24,7 @@ SOCKET KG_CreateUdpSocket()
     return KG_INVALID_SOCKET;
 }
 
-SOCKET KG_CreateListenSocket(const char *pszIpAddr, WORD nPort, int nBackLog)
+SOCKET KG_CreateListenSocket(const char *pszIpAddr, WORD uPort, int nBackLog)
 {
     int         nResult       = false;
     int         nRetCode      = 0;
@@ -33,7 +33,7 @@ SOCKET KG_CreateListenSocket(const char *pszIpAddr, WORD nPort, int nBackLog)
     SOCKET      hListenSocket = KG_INVALID_SOCKET;
     sockaddr_in saLocalAddr;
 
-    KG_PROCESS_ERROR(nPort    > 0);
+    KG_PROCESS_ERROR(uPort    > 0);
     KG_PROCESS_ERROR(nBackLog > 0);
 
     // create a tcp socket
@@ -51,7 +51,7 @@ SOCKET KG_CreateListenSocket(const char *pszIpAddr, WORD nPort, int nBackLog)
 
     saLocalAddr.sin_family      = AF_INET;
     saLocalAddr.sin_addr.s_addr = ulAddress;
-    saLocalAddr.sin_port        = htons(nPort);
+    saLocalAddr.sin_port        = htons(uPort);
 
     /*----------------------------------------------------------------------------------------------*/
     /*     Usually if we don't set "SO_REUSEADDR" opt, the listen port used in server can't be used */

@@ -17,9 +17,9 @@ public:
     virtual bool Activate() = 0;
 
 protected:
-    virtual bool _OnClientClosed   (SPIKG_SocketStream &spStream);
-    virtual bool _OnClientConnected(SPIKG_SocketStream &spStream);
-    virtual bool _OnClientDataRecvd(SPIKG_SocketStream &spStream, xbuff::SPIKG_Buffer &spBuff);
+    virtual bool _OnClientClosed   (SPIKG_SocketStream spStream);
+    virtual bool _OnClientConnected(SPIKG_SocketStream spStream);
+    virtual bool _OnClientDataRecvd(SPIKG_SocketStream spStream, xbuff::SPIKG_Buffer spBuff);
 };
 
 typedef IKG_ServerProxy                 *PIKG_ServerProxy;
@@ -65,15 +65,15 @@ protected:
 private:
     void ProcessAccept();
     void ProcessPackage();
-    void CloseConnection(SPIKG_SocketStream &spStream);
-    int  ProcessOnePackage(SPIKG_SocketStream &spStream);
+    void CloseConnection(SPIKG_SocketStream spStream);
+    int  ProcessOnePackage(SPIKG_SocketStream spStream);
 };
 
 class KG_EventModelServerProxy : public IKG_ServerProxy
 {
 protected:
-    SPKG_SocketEvent         m_spEventList;
-    SPKG_AsyncSocketAcceptor m_spSocketAcceptor;                   // Socket Server Acceptor
+    SPKG_SocketEvent         m_spEventList;                             // sp to socket event list.
+    SPKG_AsyncSocketAcceptor m_spSocketAcceptor;                        // sp to async socket acceptor.
 
 public:
     KG_EventModelServerProxy();
@@ -86,8 +86,8 @@ public:
 
 private:
     bool ProcessNetEvent();
-    void CloseConnection(SPIKG_SocketStream &spStream);
-    bool ProcessOnePackage(SPIKG_SocketStream &spStream);
+    void CloseConnection(SPIKG_SocketStream spStream);
+    bool ProcessOnePackage(SPIKG_SocketStream spStream);
 };
 
 KG_NAMESPACE_END
