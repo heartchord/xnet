@@ -13,7 +13,7 @@ public:
     virtual ~IKG_ServerProxy() {}
 
 public:
-    virtual bool Close()    = 0;
+    virtual void Close()    = 0;
     virtual bool Activate() = 0;
 
 protected:
@@ -32,8 +32,8 @@ public:
     virtual ~KG_SingleClientServerProxy();
 
 public:
-    bool Init(const char * const cszIpAddr, const USHORT uPort);
-    virtual bool Close();
+    bool Init(const char *pszIpAddr, USHORT uPort);
+    virtual void Close();
     virtual bool Activate();
 
 protected:
@@ -54,8 +54,8 @@ public:
     virtual ~KG_MultiClientServerProxy();
 
 public:
-    bool Init(const char * const cszIpAddr, const USHORT uPort);
-    virtual bool Close();
+    bool Init(const char *pszIpAddr, USHORT uPort);
+    virtual void Close();
     virtual bool Activate();
 
 protected:
@@ -80,8 +80,8 @@ public:
     virtual ~KG_EventModelServerProxy();
 
 public:
-    bool Init(const char * const cszIpAddr, const USHORT uPort);
-    virtual bool Close();
+    bool Init(const char *pszIpAddr, USHORT uPort);
+    virtual void Close();
     virtual bool Activate();
 
 private:

@@ -38,13 +38,14 @@ Exit0:
 
 bool IKG_ServerProxy::_OnClientDataRecvd(SPIKG_SocketStream spStream, xbuff::SPIKG_Buffer spBuff)
 {
-    bool            bResult = false;
+    bool           bResult  = false;
     int            nRetCode = false;
-    USHORT         uPort = 0;
+    USHORT         uPort    = 0;
     struct in_addr addr;
-    KG_PROCESS_ERROR(spStream);
 
+    KG_PROCESS_ERROR(spStream);
     spStream->GetAddress(&addr, &uPort);
+
     xzero::KG_DebugPrintln("[MSG] IKG_ServerProxy - receive a package connection[ip - %s, port - %d]", ::inet_ntoa(addr), ntohs(uPort));
     xzero::KG_PrintlnInHex(spBuff->Buf(), spBuff->CurSize());
 
@@ -63,7 +64,7 @@ KG_SingleClientServerProxy::~KG_SingleClientServerProxy()
     KG_ASSERT(!m_spSocketAcceptor && "[ERROR] Forgot invoking KG_SingleClientServerProxy::Close()?");
 }
 
-bool KG_SingleClientServerProxy::Init(const char * const cszIpAddr, const USHORT uPort)
+bool KG_SingleClientServerProxy::Init(const char *pszIpAddr, USHORT uPort)
 {
     bool bResult  = false;
     int  nRetCode = 0;
@@ -80,7 +81,7 @@ bool KG_SingleClientServerProxy::Init(const char * const cszIpAddr, const USHORT
     m_spSocketAcceptor = SPKG_SocketAcceptor(::new KG_SocketAcceptor);
     KG_PROCESS_ERROR(m_spSocketAcceptor);
 
-    nRetCode = m_spSocketAcceptor->Init(cszIpAddr, uPort);
+    nRetCode = m_spSocketAcceptor->Init(pszIpAddr, uPort);
     KG_PROCESS_ERROR(nRetCode);
 
     bResult = true;
@@ -97,7 +98,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_SingleClientServerProxy::Close()
+void KG_SingleClientServerProxy::Close()
 {
     int nRetCode = 0;
 
@@ -116,8 +117,6 @@ bool KG_SingleClientServerProxy::Close()
         KG_ASSERT(nRetCode);
         m_spSocketStream.reset();
     }
-
-    return true;
 }
 
 bool KG_SingleClientServerProxy::Activate()
@@ -199,7 +198,6 @@ void KG_SingleClientServerProxy::CloseConnection()
 
     nRetCode = m_spSocketStream->Close();
     KG_PROCESS_ERROR(nRetCode);
-    m_spSocketStream.reset();
 
 Exit1:
     bResult = true;
@@ -217,7 +215,7 @@ KG_MultiClientServerProxy::~KG_MultiClientServerProxy()
     KG_ASSERT(!m_spSocketAcceptor        && "[ERROR] Forgot invoking KG_MultiClientServerProxy::Close()?");
 }
 
-bool KG_MultiClientServerProxy::Init(const char * const cszIpAddr, const USHORT uPort)
+bool KG_MultiClientServerProxy::Init(const char *pszIpAddr, USHORT uPort)
 {
     bool bResult  = false;
     int  nRetCode = 0;
@@ -233,7 +231,7 @@ bool KG_MultiClientServerProxy::Init(const char * const cszIpAddr, const USHORT 
     m_spSocketAcceptor = SPKG_SocketAcceptor(::new KG_SocketAcceptor);
     KG_PROCESS_ERROR(m_spSocketAcceptor);
 
-    nRetCode = m_spSocketAcceptor->Init(cszIpAddr, uPort);
+    nRetCode = m_spSocketAcceptor->Init(pszIpAddr, uPort);
     KG_PROCESS_ERROR(nRetCode);
 
     bResult = true;
@@ -250,7 +248,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_MultiClientServerProxy::Close()
+void KG_MultiClientServerProxy::Close()
 {
     int nRetCode = 0;
 
@@ -272,7 +270,6 @@ bool KG_MultiClientServerProxy::Close()
     }
 
     m_SocketStreamList.clear();
-    return true;
 }
 
 bool KG_MultiClientServerProxy::Activate()
@@ -366,7 +363,6 @@ void KG_MultiClientServerProxy::CloseConnection(SPIKG_SocketStream spStream)
 
     nRetCode = spStream->Close();
     KG_PROCESS_ERROR(nRetCode);
-    spStream.reset();
 
 Exit1:
     bResult = true;
@@ -407,13 +403,14 @@ KG_EventModelServerProxy::KG_EventModelServerProxy()
 
 KG_EventModelServerProxy::~KG_EventModelServerProxy()
 {
+    KG_ASSERT(!m_spEventList      && "[ERROR] Forgot invoking KG_EventModelServerProxy::Close()?");
     KG_ASSERT(!m_spSocketAcceptor && "[ERROR] Forgot invoking KG_EventModelServerProxy::Close()?");
 }
 
-bool KG_EventModelServerProxy::Init(const char * const cszIpAddr, const USHORT uPort)
+bool KG_EventModelServerProxy::Init(const char *pszIpAddr, USHORT uPort)
 {
     bool                    bResult             = false;
-    int                     nRetCode            = false;
+    int                     nRetCode            = 0;
     PKG_SocketEvent         pEventList          = NULL;
     bool                    bEventListInit      = false;
     PKG_AsyncSocketAcceptor pSocketAcceptor     = NULL;
@@ -422,7 +419,6 @@ bool KG_EventModelServerProxy::Init(const char * const cszIpAddr, const USHORT u
     KG_PROCESS_ERROR(uPort > 0);
     KG_PROCESS_ERROR(!m_spSocketAcceptor);
 
-    // start net service
     // start net service
     nRetCode = KG_SINGLETON_REF(KG_NetService).Open();
     KG_PROCESS_ERROR(nRetCode);
@@ -436,7 +432,7 @@ bool KG_EventModelServerProxy::Init(const char * const cszIpAddr, const USHORT u
     pSocketAcceptor = ::new KG_AsyncSocketAcceptor;
     KG_PROCESS_PTR_ERROR(pSocketAcceptor);
 
-    nRetCode = pSocketAcceptor->Init(cszIpAddr, uPort, KG_MAX_SOCKET_ACCEPT_EVENT, 1024 * 4, 1024 * 16);
+    nRetCode = pSocketAcceptor->Init(pszIpAddr, uPort, KG_MAX_SOCKET_ACCEPT_EVENT, 1024 * 4, 1024 * 16);
     KG_PROCESS_ERROR(nRetCode);
     bSocketAcceptorInit = true;
 
@@ -456,11 +452,10 @@ Exit0:
             nRetCode = pSocketAcceptor->Close();
             KG_ASSERT(nRetCode);
         }
-
         xzero::KG_DeletePtrSafely(pSocketAcceptor);
         bSocketAcceptorInit = false;
 
-        if (bSocketAcceptorInit)
+        if (bEventListInit)
         {
         }
         xzero::KG_DeleteArrayPtrSafely(pEventList);
@@ -470,7 +465,7 @@ Exit0:
     return bResult;
 }
 
-bool KG_EventModelServerProxy::Close()
+void KG_EventModelServerProxy::Close()
 {
     int nRetCode = 0;
 
@@ -488,67 +483,83 @@ bool KG_EventModelServerProxy::Close()
     {
         m_spEventList.reset();
     }
-
-    return true;
 }
 
 bool KG_EventModelServerProxy::Activate()
 {
-    ProcessNetEvent();
-    return true;
+    bool bResult  = false;
+    int  nRetCode = 0;
+
+    nRetCode = ProcessNetEvent();
+    KG_PROCESS_ERROR(nRetCode);
+
+    bResult = true;
+Exit0:
+    return bResult;
 }
 
 bool KG_EventModelServerProxy::ProcessNetEvent()
 {
-    bool   bResult   = false;
-    int    nRetCode  = false;
-    UINT32 uCurCount = 0;
-    UINT32 uType     = KG_SOCKET_EVENT_INIT;
-    SPIKG_SocketStream spSocketStream;
+    bool               bResult    = false;
+    int                nRetCode   = 0;
+    UINT32             uCurCount  = 0;
+    UINT32             uEventType = KG_SOCKET_EVENT_INIT;
+    PKG_SocketEvent    pEventList = NULL;
+    USHORT             uPort = 0;
+    struct in_addr     addr;
+    SPIKG_SocketStream spStream;
+
+    pEventList = m_spEventList.get();
+    KG_PROCESS_PTR_ERROR(pEventList);
 
     for (;;)
     {
         uCurCount = 0;
 
-        nRetCode = m_spSocketAcceptor->Activate(KG_MAX_SOCKET_EVENT, uCurCount, m_spEventList.get());
+        nRetCode = m_spSocketAcceptor->Activate(KG_MAX_SOCKET_EVENT, uCurCount, pEventList);
         KG_PROCESS_ERROR(nRetCode);
-        KG_PROCESS_SUCCESS(0 == uCurCount);
+        KG_PROCESS_SUCCESS(0 == uCurCount);                             // no event occurs
 
         for (UINT32 i = 0; i < uCurCount; i++)
         {
-            spSocketStream = m_spEventList.get()[i].m_spStream;
-            uType          = m_spEventList.get()[i].m_uType;
+            spStream   = pEventList[i].m_spStream;
+            uEventType = pEventList[i].m_uType;
 
-            if (!spSocketStream)
+            if (!spStream)
             {
                 KG_ASSERT(false);
+                pEventList[i].Reset();
                 continue;
             }
 
-            if (KG_SOCKET_EVENT_ACCEPT & uType)
-            {
-                nRetCode = _OnClientConnected(spSocketStream);
+            spStream->GetAddress(&addr, &uPort);
+
+            if (KG_SOCKET_EVENT_ACCEPT & uEventType)
+            { // accept event
+                nRetCode = _OnClientConnected(spStream);
                 if (!nRetCode)
                 {
-                    CloseConnection(spSocketStream);
-                    m_spEventList.get()[i].Reset();
+                    CloseConnection(spStream);
+                    pEventList[i].Reset();
                 }
                 continue;
             }
 
-            if (!(KG_SOCKET_EVENT_READ & uType))
-            {
-                xzero::KG_DebugPrintln("[Error] unexpected socket event : %u", uType);
-                CloseConnection(spSocketStream);
-                m_spEventList.get()[i].Reset();
+            if (!(KG_SOCKET_EVENT_READ & uEventType))
+            { // unknown event
+                xzero::KG_DebugPrintln("[Error] unexpected socket event : [%u] of connection[ip - %s, port - %d]", uEventType, ::inet_ntoa(addr), ntohs(uPort));
+                CloseConnection(spStream);
+                pEventList[i].Reset();
                 continue;
             }
 
-            nRetCode = ProcessOnePackage(spSocketStream);
+            // read event
+            nRetCode = ProcessOnePackage(spStream);
             if (!nRetCode)
             {
-                CloseConnection(spSocketStream);
-                m_spEventList.get()[i].Reset();
+                xzero::KG_DebugPrintln("[Error] processing one package failed of connection[ip - %s, port - %d]", ::inet_ntoa(addr), ntohs(uPort));
+                CloseConnection(spStream);
+                pEventList[i].Reset();
             }
         }
     }
@@ -561,10 +572,10 @@ Exit0:
 
 bool KG_EventModelServerProxy::ProcessOnePackage(SPIKG_SocketStream spStream)
 {
-    bool                bResult  = false;
-    int                 nRetCode = 0;
-    static int          nPackageSerial = 0;
-    timeval             tv = { 0, 0 };
+    bool                bResult    = false;
+    int                 nRetCode   = 0;
+    timeval             tv         = { 0, 0 };
+    static int          nPakSerial = 0;
     xbuff::SPIKG_Buffer spBuff;
 
     KG_PROCESS_ERROR(spStream);
@@ -575,7 +586,7 @@ bool KG_EventModelServerProxy::ProcessOnePackage(SPIKG_SocketStream spStream)
         KG_PROCESS_ERROR_Q(nRetCode >= 0);                              // error
         KG_PROCESS_SUCCESS(nRetCode == 0);                              // time out
 
-        xzero::KG_DebugPrintln("[MSG] KG_SingleClientServerProxy - Package Serial = %d", nPackageSerial++);
+        xzero::KG_DebugPrintln("[MSG] KG_EventModelServerProxy - Package Serial = %d", nPakSerial++);
 
         nRetCode = _OnClientDataRecvd(spStream, spBuff);
         KG_PROCESS_ERROR(nRetCode);                                     // error
@@ -589,22 +600,18 @@ Exit0:
 
 void KG_EventModelServerProxy::CloseConnection(SPIKG_SocketStream spStream)
 {
-    bool bResult = false;
-    int  nRetCode = false;
+    int nRetCode = false;
 
-    KG_PROCESS_SUCCESS(!spStream);
+    if (!spStream)
+    {
+        return;
+    }
 
     nRetCode = _OnClientClosed(spStream);
-    KG_PROCESS_ERROR(nRetCode);
+    KG_ASSERT(nRetCode);
 
     nRetCode = spStream->Close();
-    KG_PROCESS_ERROR(nRetCode);
-    spStream.reset();
-
-Exit1:
-    bResult = true;
-Exit0:
-    return;
+    KG_ASSERT(nRetCode);
 }
 
 KG_NAMESPACE_END
